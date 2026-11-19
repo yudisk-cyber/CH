@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#060b14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Atlas 3D interactif du corps humain : squelette, muscles, circulation, système nerveux, organes.">
+<title>Anatomia 3D</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clinique, précis, lumineux — un atlas d'anatomie qui respire
+   IDEA: la table d'imagerie médicale (scanner holographique) d'un labo d'anatomie
+   PICTURE: le corps 3D plein écran, au centre de tout
+   COLOUR: nuit bleu profond, cyan de scanner en accent, chaque système garde sa couleur d'atlas
+   TYPE: Sora pour les titres, Manrope pour le texte ; LAYOUT: panneaux vitrés flottants autour de la scène */
+:root{--bg:#060b14;--ink:#e8f0fa;--mute:#8fa3bd;--acc:#56d6ff;--glass:rgba(10,18,32,.74);--line:rgba(140,190,255,.14);--r:16px;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 Manrope,system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.glass{background:var(--glass);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+/* loader */
+#loader{position:fixed;inset:0;z-index:50;display:grid;place-items:center;align-content:center;gap:14px;background:radial-gradient(circle at 50% 45%,#0e1f38,#04070d 70%);transition:opacity .6s}
+#loader.off{opacity:0;pointer-events:none}
+.ld-ring{width:72px;height:72px;border-radius:50%;border:2px solid rgba(86,214,255,.15);border-top-color:var(--acc);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ld-t{font:600 20px Sora,sans-serif;letter-spacing:.01em}
+.ld-s{color:var(--mute);font-size:14px;max-width:320px;text-align:center}
+/* header */
+#top{position:fixed;top:calc(12px + var(--sat));left:12px;right:12px;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:10px;pointer-events:none}
+#top>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px}
+.brand svg{width:30px;height:30px;flex:none}
+.brand b{font:700 17px Sora,sans-serif;display:block;line-height:1.1}
+.brand span{font-size:12px;color:var(--mute)}
+.tools{display:flex;gap:6px;padding:6px}
+.tb{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:var(--mute);transition:.2s}
+.tb svg{width:21px;height:21px}
+.tb:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.tb.on{color:#04121c;background:var(--acc)}
+/* panel */
+#panel{position:fixed;z-index:9;left:12px;top:calc(84px + var(--sat));bottom:12px;width:320px;display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;padding:6px;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;padding:10px 6px;border-radius:10px;font-weight:600;font-size:14px;color:var(--mute)}
+.tabs button.on{background:rgba(86,214,255,.14);color:var(--ink)}
+.tab{flex:1;overflow-y:auto;padding:12px;scrollbar-width:thin}
+.tab[hidden]{display:none}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:8px 12px;border-radius:99px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink);background:rgba(255,255,255,.03);white-space:nowrap}
+.chip:hover,.chip.on{border-color:var(--acc);color:var(--acc)}
+.lay{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px 12px;padding:10px;border-radius:12px;transition:.2s}
+.lay:hover{background:rgba(255,255,255,.04)}
+.lay .dot{width:14px;height:14px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c)}
+.lay.off .dot{background:transparent;box-shadow:none;border:2px solid var(--c)}
+.lay b{font-weight:600;font-size:14.5px;display:block}
+.lay small{color:var(--mute);font-size:12.5px}
+.lay.off b{color:var(--mute)}
+.sw{width:42px;height:24px;border-radius:99px;background:rgba(255,255,255,.12);position:relative;flex:none;transition:.2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.sw[aria-pressed=true]{background:var(--acc)}
+.sw[aria-pressed=true]::after{left:21px}
+.lay input{grid-column:2/4}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:rgba(255,255,255,.14)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);margin-top:-7px;border:3px solid var(--acc)}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:rgba(255,255,255,.14)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ink);border:3px solid var(--acc)}
+.search{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);font-size:16px;margin-bottom:10px}
+.grp{margin:14px 0 6px;font:600 12.5px Sora,sans-serif;color:var(--mute);display:flex;align-items:center;gap:8px}
+.grp i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.it{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 10px;border-radius:10px;font-size:14px}
+.it:hover{background:rgba(255,255,255,.05)}
+.it.sel{background:rgba(86,214,255,.14);color:var(--acc)}
+.it .h{margin-left:auto;font-size:11.5px;color:var(--mute);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.btn{width:100%;padding:11px;border-radius:12px;border:1px solid var(--line);font-weight:600;margin-top:10px}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.row span{font-weight:600;font-size:14.5px}
+.row small{display:block;color:var(--mute);font-weight:500;font-size:12.5px}
+.sl{padding:12px 4px;border-bottom:1px solid var(--line)}
+.sl label{display:flex;justify-content:space-between;font-weight:600;font-size:14.5px}
+.sl output{color:var(--acc);font-variant-numeric:tabular-nums}
+.ecg{margin:14px 0 4px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid var(--line);padding:10px}
+.ecg-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--mute)}
+.ecg-h b{font:700 24px Sora,sans-serif;color:#ff5a6a}
+#ecg{width:100%;height:64px;display:block}
+.note{font-size:12.5px;color:var(--mute);margin-top:14px}
+/* info */
+#info{position:fixed;z-index:11;right:12px;top:calc(84px + var(--sat));width:370px;max-height:calc(100% - 170px);overflow-y:auto;padding:18px 18px 16px;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .3s}
+#info.hide{opacity:0;transform:translateX(30px);pointer-events:none}
+#iClose{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:10px;font-size:22px;color:var(--mute)}
+#iClose:hover{background:rgba(255,255,255,.06);color:var(--ink)}
+.isys{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--mute);padding:4px 10px 4px 8px;border:1px solid var(--line);border-radius:99px}
+.isys i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+#iName{font:700 25px/1.12 Sora,sans-serif;margin:12px 40px 4px 0;text-wrap:balance}
+#iLat{font-style:italic;color:var(--mute);margin:0 0 12px}
+#iDesc{margin:0 0 14px;color:#d3deec}
+.fact{border-left:3px solid var(--acc);padding:8px 12px;background:rgba(86,214,255,.07);border-radius:0 10px 10px 0;font-size:14px}
+.fact b{display:block;font-size:12.5px;color:var(--acc);margin-bottom:2px}
+.iact{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.iact button{padding:11px 8px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:6px}
+.iact button:hover,.iact button.on{border-color:var(--acc);color:var(--acc)}
+.iact button[disabled]{opacity:.35;pointer-events:none}
+/* views */
+#views{position:fixed;z-index:8;left:344px;right:394px;bottom:14px;display:flex;justify-content:center;pointer-events:none}
+#views .glass{display:flex;gap:4px;padding:6px;overflow-x:auto;pointer-events:auto;scrollbar-width:none;max-width:100%}
+#views .glass::-webkit-scrollbar{display:none}
+#views button{padding:9px 13px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--mute);white-space:nowrap;flex:none}
+#views button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+#mob{display:none}
+/* labels */
+#tip{position:fixed;z-index:20;pointer-events:none;padding:6px 10px;border-radius:8px;background:rgba(4,10,20,.88);border:1px solid var(--line);font-size:13px;font-weight:600;opacity:0;transform:translate(14px,14px);transition:opacity .15s;white-space:nowrap}
+#label{position:fixed;z-index:7;left:0;top:0;pointer-events:none;opacity:0;transition:opacity .25s}
+#label i{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid var(--acc);box-shadow:0 0 14px var(--acc)}
+#label i::after{content:"";position:absolute;left:8px;bottom:8px;width:34px;height:1px;background:var(--acc);transform-origin:left bottom;transform:rotate(-40deg)}
+#label span{position:absolute;left:30px;top:-44px;white-space:nowrap;padding:5px 10px;border-radius:8px;background:rgba(4,10,20,.85);border:1px solid rgba(86,214,255,.45);font:600 13px Sora,sans-serif;color:var(--acc)}
+#err{color:#ff8d8d}
+@media (max-width:820px){
+  .brand span{display:none}
+  .brand{padding:6px 12px 6px 8px}
+  .tools{padding:4px;gap:2px}
+  .tb{width:40px;height:40px}
+  #panel{left:8px;right:8px;width:auto;top:auto;bottom:calc(70px + var(--sab));max-height:58vh;transform:translateY(calc(100% + 90px));transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+  #panel.open{transform:none}
+  #panel .tabs{display:none}
+  #info{left:8px;right:8px;width:auto;top:auto;bottom:calc(70px + var(--sab));max-height:46vh;padding:16px}
+  #info.hide{transform:translateY(40px)}
+  #iName{font-size:21px}
+  #views{left:8px;right:8px;top:calc(68px + var(--sat));bottom:auto;justify-content:flex-start}
+  #views .glass{padding:4px}
+  #views button{padding:8px 11px;font-size:13px}
+  #mob{display:flex;position:fixed;z-index:12;left:8px;right:8px;bottom:calc(8px + var(--sab));padding:5px;gap:4px}
+  #mob button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;border-radius:12px;font-size:12px;font-weight:600;color:var(--mute)}
+  #mob button svg{width:20px;height:20px}
+  #mob button.on{background:rgba(86,214,255,.14);color:var(--acc)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Modèle 3D du corps humain"></canvas>
+
+<div id="loader"><div class="ld-ring"></div><div class="ld-t">Assemblage du corps humain…</div><div class="ld-s" id="ldS">Chargement du moteur 3D</div></div>
+
+<header id="top">
+  <div class="brand glass">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#56d6ff" stroke-width="1.8" stroke-linecap="round"><circle cx="16" cy="6" r="3.4"/><path d="M16 10v11M9 13.5l7 2 7-2M12 30l4-9 4 9"/><circle cx="16" cy="16" r="14.5" stroke-opacity=".35"/></svg>
+    <div><b>Anatomia</b><span>Atlas 3D du corps humain</span></div>
+  </div>
+  <div class="tools glass">
+    <button class="tb" id="bXray" title="Mode rayons X" aria-label="Mode rayons X"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 6v12M8 9h8M8 12h8M9 15h6"/></svg></button>
+    <button class="tb" id="bRot" title="Rotation automatique" aria-label="Rotation automatique"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg></button>
+    <button class="tb" id="bReset" title="Réinitialiser la vue" aria-label="Réinitialiser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6"/></svg></button>
+    <button class="tb" id="bFull" title="Plein écran" aria-label="Plein écran"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+  </div>
+</header>
+
+<aside id="panel" class="glass">
+  <nav class="tabs">
+    <button data-tab="layers" class="on">Systèmes</button>
+    <button data-tab="list">Structures</button>
+    <button data-tab="anim">Animations</button>
+  </nav>
+  <section class="tab" id="t-layers">
+    <div class="presets" id="presets"></div>
+    <div id="layers"></div>
+    <p class="note">Touchez une structure pour l’agrandir et lire sa fiche. Glissez pour tourner, pincez pour zoomer, deux doigts pour déplacer.</p>
+  </section>
+  <section class="tab" id="t-list" hidden>
+    <input class="search" id="q" type="search" placeholder="Rechercher : fémur, aorte, sciatique…" autocomplete="off">
+    <div id="list"></div>
+    <button class="btn" id="unhide">Tout réafficher</button>
+  </section>
+  <section class="tab" id="t-anim" hidden>
+    <div class="ecg"><div class="ecg-h"><span>Électrocardiogramme</span><span><b id="bpmV">72</b> bpm</span></div><canvas id="ecg"></canvas></div>
+    <div class="row"><span>Battements du cœur<small>Contraction des ventricules</small></span><button class="sw" data-a="beat" aria-pressed="true" aria-label="Battements"></button></div>
+    <div class="row"><span>Circulation sanguine<small>Sang oxygéné en rouge, désoxygéné en bleu</small></span><button class="sw" data-a="flow" aria-pressed="true" aria-label="Circulation"></button></div>
+    <div class="row"><span>Influx nerveux<small>Signaux électriques le long des nerfs</small></span><button class="sw" data-a="nerve" aria-pressed="true" aria-label="Influx nerveux"></button></div>
+    <div class="row"><span>Respiration<small>Poumons et diaphragme</small></span><button class="sw" data-a="breath" aria-pressed="true" aria-label="Respiration"></button></div>
+    <div class="row"><span>Effets lumineux<small>Halo (désactiver si ça rame)</small></span><button class="sw" data-a="bloom" aria-pressed="true" aria-label="Effets lumineux"></button></div>
+    <div class="sl"><label for="sBpm">Fréquence cardiaque <output id="oBpm">72 bpm</output></label><input id="sBpm" type="range" min="35" max="190" value="72"></div>
+    <div class="sl"><label for="sRr">Fréquence respiratoire <output id="oRr">14 /min</output></label><input id="sRr" type="range" min="6" max="40" value="14"></div>
+    <div class="chip-row presets" style="margin-top:12px">
+      <button class="chip" data-hr="50,10">Sommeil</button>
+      <button class="chip" data-hr="72,14">Repos</button>
+      <button class="chip" data-hr="120,24">Marche rapide</button>
+      <button class="chip" data-hr="175,38">Sprint</button>
+    </div>
+  </section>
+</aside>
+
+<article id="info" class="glass hide" aria-live="polite">
+  <button id="iClose" aria-label="Fermer">×</button>
+  <div class="isys" id="iSysW"><i></i><span id="iSys"></span></div>
+  <h2 id="iName"></h2>
+  <p id="iLat"></p>
+  <p id="iDesc"></p>
+  <div class="fact"><b>Le saviez-vous ?</b><span id="iFact"></span></div>
+  <div class="iact">
+    <button id="aIso">Isoler</button>
+    <button id="aHide">Masquer</button>
+    <button id="aMir">Côté opposé</button>
+    <button id="aFocus">Recentrer</button>
+  </div>
+</article>
+
+<div id="views"><div class="glass" id="viewBar"></div></div>
+
+<nav id="mob" class="glass">
+  <button data-m="layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>Systèmes</button>
+  <button data-m="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Structures</button>
+  <button data-m="anim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Animations</button>
+</nav>
+
+<div id="tip"></div>
+<div id="label"><i></i><span></span></div>
+
+<script>
+  window.addEventListener('error',e=>{const s=document.getElementById('ldS');if(s&&!window.__ready){s.innerHTML='<span id="err">Erreur : '+(e.message||'chargement impossible')+'</span>'}});
+  setTimeout(()=>{if(!window.__ok){const s=document.getElementById('ldS');if(s)s.innerHTML='<span id="err">Le moteur 3D ne se charge pas. Vérifiez la connexion internet puis rechargez la page.</span>'}},20000);
+  try{if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname))navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+</script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+window.__ok = true;
+{
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const ldS = $('#ldS');
+
+/* =========================================================
+   DONNÉES : systèmes et fiches
+   ========================================================= */
+const SYS = {
+  skin:{n:'Peau',c:'#7fd6ff'},
+  skeleton:{n:'Squelette',c:'#eadfc8'},
+  muscle:{n:'Muscles',c:'#e0554e'},
+  artery:{n:'Cœur & artères',c:'#ff3b47'},
+  vein:{n:'Veines',c:'#4b7dff'},
+  nerve:{n:'Système nerveux',c:'#ffd447'},
+  resp:{n:'Respiratoire',c:'#ff9ec0'},
+  digest:{n:'Digestif',c:'#f0a35a'},
+  urinary:{n:'Urinaire',c:'#e7c24f'},
+  endocrine:{n:'Endocrinien',c:'#3fe0b0'}
+};
+const LORDER = ['skin','skeleton','muscle','artery','vein','nerve','resp','digest','urinary','endocrine'];
+
+// clé : [nom, nom latin, genre (m/f) pour gauche/droit(e), description, le saviez-vous]
+const INFO = {
+peau:["Peau","Cutis","","Le plus grand organe du corps (environ 2 m² et 4 kg). Barrière protectrice contre les microbes et la déshydratation, elle régule la température et contient des millions de récepteurs du toucher, de la chaleur et de la douleur. Affichée ici en hologramme.","Nous perdons environ 30 000 à 40 000 cellules de peau chaque minute."],
+crane:["Crâne","Cranium","","Ensemble de 22 os : 8 forment la boîte crânienne (frontal, pariétaux, temporaux, occipital, sphénoïde, ethmoïde) qui protège l’encéphale, et 14 forment le massif facial. Ils sont unis par des sutures immobiles. Les orbites logent les yeux et l’ouverture piriforme encadre le nez.","À la naissance, les os du crâne ne sont pas soudés : les fontanelles permettent à la tête de se mouler pendant l’accouchement."],
+mandibule:["Mandibule","Mandibula","","Os de la mâchoire inférieure, en forme de fer à cheval. Il s’articule avec l’os temporal (articulation temporo-mandibulaire) et porte les 16 dents inférieures.","C’est le seul os mobile de la tête, et le plus solide de la face."],
+atlas:["Atlas (C1)","Atlas","","Première vertèbre cervicale : un anneau sans corps vertébral qui porte le crâne. Il s’articule avec l’occipital et permet le mouvement du « oui ».","Son nom vient du titan Atlas, condamné à porter la voûte céleste sur ses épaules."],
+axis:["Axis (C2)","Axis","","Deuxième vertèbre cervicale, reconnaissable à sa dent (processus odontoïde) autour de laquelle pivote l’atlas : c’est le mouvement du « non ».","Environ la moitié de la rotation de la tête se fait entre C1 et C2."],
+vC:["Vertèbre cervicale","Vertebra cervicalis","","Les 7 vertèbres du cou sont petites et très mobiles. Leurs processus transverses sont percés d’un trou où passe l’artère vertébrale, qui irrigue l’arrière du cerveau.","Une girafe a aussi 7 vertèbres cervicales, comme nous : elles sont juste beaucoup plus longues."],
+vT:["Vertèbre thoracique","Vertebra thoracica","","Les 12 vertèbres du dos s’articulent avec les côtes. Leurs processus épineux, longs et inclinés vers le bas, limitent la flexion et protègent la moelle épinière.","C’est la partie la moins mobile de la colonne : la cage thoracique la rigidifie."],
+vL:["Vertèbre lombaire","Vertebra lumbalis","","Les 5 vertèbres lombaires sont les plus massives : elles portent tout le poids du haut du corps. C’est à leur niveau que surviennent la plupart des hernies discales.","La ponction lombaire se fait entre L3 et L5, sous la fin de la moelle épinière, pour ne pas la toucher."],
+disques:["Disques intervertébraux","Disci intervertebrales","","Coussinets de fibrocartilage entre les vertèbres : un anneau fibreux entoure un noyau gélatineux qui amortit les chocs et permet à la colonne de se plier. Inclut ici la symphyse pubienne.","On mesure 1 à 2 cm de plus le matin : les disques se réhydratent pendant la nuit."],
+sacrum:["Sacrum","Os sacrum","","Os triangulaire formé de 5 vertèbres soudées. Il s’emboîte entre les deux os coxaux pour fermer le bassin en arrière et transmet le poids du corps aux membres inférieurs.","Son nom latin signifie « os sacré »."],
+coccyx:["Coccyx","Os coccygis","","Petit os terminal de la colonne, formé de 3 à 5 vertèbres atrophiées soudées. Il sert d’ancrage aux muscles et ligaments du plancher pelvien.","C’est le vestige de la queue de nos lointains ancêtres."],
+sternum:["Sternum","Sternum","","Os plat au centre du thorax, formé du manubrium, du corps et du processus xiphoïde. Les cartilages des 7 premières paires de côtes s’y attachent.","Il contient de la moelle rouge : on peut y prélever de la moelle osseuse."],
+coteV:["Côte","Costa vera","f","Les côtes 1 à 7 sont dites « vraies » : elles rejoignent directement le sternum par leur propre cartilage costal. Elles protègent le cœur et les poumons et se soulèvent à chaque inspiration.","À l’inspiration, les côtes se lèvent comme l’anse d’un seau."],
+coteF:["Côte","Costa spuria","f","Les côtes 8 à 10 sont dites « fausses » : elles rejoignent le sternum indirectement, via le cartilage de la 7e côte, et forment le rebord costal.","Environ 1 personne sur 200 possède une côte en plus, dite cervicale."],
+coteFl:["Côte","Costa fluctuans","f","Les côtes 11 et 12 sont « flottantes » : leur extrémité reste libre dans la paroi abdominale, sans attache au sternum. Elles protègent en partie les reins.","Hommes et femmes ont exactement le même nombre de côtes : 24."],
+cartilages:["Cartilages costaux","Cartilagines costales","","Bandes de cartilage qui prolongent les côtes jusqu’au sternum. Leur élasticité permet à la cage thoracique de se dilater à chaque respiration.","Avec l’âge, ils se calcifient et rendent le thorax plus rigide."],
+clavicule:["Clavicule","Clavicula","f","Os long en forme de S entre le sternum et la scapula. C’est la seule attache osseuse du bras au tronc : elle maintient l’épaule écartée du thorax.","C’est l’os le plus souvent fracturé, surtout lors des chutes sur l’épaule."],
+scapula:["Scapula (omoplate)","Scapula","f","Os plat triangulaire à l’arrière du thorax. Sa cavité glénoïdale reçoit la tête de l’humérus, son épine se termine par l’acromion ; 17 muscles s’y attachent.","Elle n’est reliée au squelette que par la clavicule : elle « flotte » sur un coussin de muscles."],
+humerus:["Humérus","Humerus","m","Os du bras. Sa tête s’articule avec la scapula (épaule), son extrémité inférieure avec le radius et l’ulna (coude).","Le « petit juif » qu’on se cogne au coude est le nerf ulnaire qui passe derrière l’humérus."],
+radius:["Radius","Radius","m","Os latéral de l’avant-bras, côté pouce. Il pivote autour de l’ulna pour tourner la paume vers le haut ou vers le bas (supination / pronation).","La fracture du poignet la plus fréquente touche l’extrémité inférieure du radius."],
+ulna:["Ulna (cubitus)","Ulna","f","Os médial de l’avant-bras, côté auriculaire. Son olécrane forme la pointe du coude et s’emboîte dans l’humérus comme une charnière.","L’ancien nom « cubitus » a donné la coudée, unité de longueur antique."],
+carpe:["Os du carpe (main {f})","Ossa carpi","","8 petits os du poignet en deux rangées : scaphoïde, lunatum, triquetrum, pisiforme, trapèze, trapézoïde, capitatum et hamatum. Ils donnent au poignet sa souplesse.","Le scaphoïde se fracture souvent et cicatrise mal, car il est peu vascularisé."],
+metacarpe:["Métacarpiens (main {f})","Ossa metacarpi","","5 os longs qui forment la paume et relient le carpe aux doigts. Celui du pouce est le plus court et le plus mobile.","Les « jointures » du poing fermé sont les têtes des métacarpiens."],
+phalMain:["Phalanges (main {f})","Phalanges manus","","14 os des doigts : 3 par doigt (proximale, moyenne, distale) et 2 pour le pouce. Ils permettent la préhension fine.","Il n’y a aucun muscle dans les doigts : ils sont actionnés à distance par des tendons, comme des marionnettes."],
+coxal:["Os coxal","Os coxae","m","Os du bassin formé par la fusion de l’ilium (l’aile), de l’ischium et du pubis. Sa cavité, l’acétabulum, reçoit la tête du fémur.","Assis, on repose sur les tubérosités ischiatiques, les « ischions »."],
+femur:["Fémur","Femur","m","Os de la cuisse, le plus long et le plus solide du corps. Sa tête s’emboîte dans le bassin, ses deux condyles forment le genou.","Il représente environ 26 % de la taille d’une personne."],
+rotule:["Patella (rotule)","Patella","f","Os sésamoïde inclus dans le tendon du quadriceps, devant le genou. Il agit comme une poulie qui augmente la force d’extension de la jambe.","Les bébés naissent avec une rotule en cartilage, qui ne s’ossifie que vers 3 à 5 ans."],
+tibia:["Tibia","Tibia","m","Os principal de la jambe, qui porte le poids du corps. Sa face antérieure est juste sous la peau ; il forme la malléole médiale de la cheville.","C’est le deuxième plus long os du corps après le fémur."],
+fibula:["Fibula (péroné)","Fibula","f","Os fin et latéral de la jambe. Il porte peu de poids mais stabilise la cheville grâce à la malléole latérale et sert d’insertion musculaire.","Les chirurgiens en prélèvent parfois un morceau pour reconstruire une mâchoire."],
+talus:["Talus","Talus","m","Os de la cheville coincé entre le tibia, la fibula et le calcanéus. Il transmet tout le poids du corps au pied et ne porte aucun muscle.","Les osselets des jeux antiques étaient des talus de mouton."],
+calcaneus:["Calcanéus","Calcaneus","m","Os du talon, le plus gros du pied. Il reçoit le tendon d’Achille et encaisse le choc de chaque pas.","En courant, il supporte 3 à 4 fois le poids du corps à chaque foulée."],
+tarse:["Os du tarse antérieur (pied {m})","Ossa tarsi","","Naviculaire, cuboïde et 3 cunéiformes : avec le talus et le calcanéus, ils forment les 7 os du tarse et la voûte plantaire.","La voûte plantaire agit comme un ressort qui restitue de l’énergie à la marche."],
+metatarse:["Métatarsiens (pied {m})","Ossa metatarsi","","5 os longs de l’avant-pied qui relient le tarse aux orteils. Leurs têtes forment l’appui avant du pied.","La fracture de fatigue des grands marcheurs touche souvent le 2e métatarsien."],
+phalPied:["Phalanges du pied {m}","Phalanges pedis","","14 os des orteils : 2 pour le gros orteil (hallux), 3 pour les autres. Ils assurent l’équilibre et la propulsion.","Les deux pieds contiennent ensemble 52 os, soit un quart du squelette."],
+dents:["Dents","Dentes","","32 dents chez l’adulte : 8 incisives pour couper, 4 canines pour déchirer, 8 prémolaires et 12 molaires pour broyer. L’émail qui les recouvre est le tissu le plus dur du corps.","L’émail ne se régénère pas : une fois abîmé, il ne repousse jamais."],
+deltoide:["Deltoïde","Musculus deltoideus","m","Muscle triangulaire qui galbe l’épaule. Ses trois faisceaux (antérieur, moyen, postérieur) lèvent le bras dans toutes les directions.","Son nom vient de la lettre grecque delta (Δ), à cause de sa forme."],
+pectoral:["Grand pectoral","Musculus pectoralis major","m","Muscle en éventail du thorax, du sternum et de la clavicule jusqu’à l’humérus. Il rapproche le bras du corps et le tourne vers l’intérieur.","Lors des pompes, c’est lui qui fournit l’essentiel de l’effort."],
+biceps:["Biceps brachial","Musculus biceps brachii","m","Muscle à deux chefs à l’avant du bras. Il fléchit le coude et tourne la paume vers le haut (supination).","C’est le muscle du tire-bouchon : il est encore plus efficace pour tourner que pour plier."],
+triceps:["Triceps brachial","Musculus triceps brachii","m","Muscle à trois chefs à l’arrière du bras, antagoniste du biceps : il étend le coude.","Il représente environ les deux tiers du volume du bras."],
+flechisseurs:["Fléchisseurs de l’avant-bras {m}","Musculi flexores antebrachii","","Groupe de muscles de la face antérieure de l’avant-bras qui plient le poignet et les doigts. Leurs tendons passent dans le canal carpien.","La compression du nerf médian dans ce canal donne le syndrome du canal carpien."],
+brachioradial:["Brachioradial","Musculus brachioradialis","m","Muscle du bord latéral de l’avant-bras qui fléchit le coude, surtout quand le pouce est tourné vers le haut.","On le voit saillir quand on soulève une tasse ou un marteau."],
+extenseurs:["Extenseurs de l’avant-bras {m}","Musculi extensores antebrachii","","Muscles de la face postérieure de l’avant-bras qui redressent le poignet et les doigts. Ils naissent de l’épicondyle latéral.","Leur inflammation, c’est le fameux « tennis elbow »."],
+scm:["Sterno-cléido-mastoïdien","Musculus sternocleidomastoideus","m","Long muscle du cou, du sternum et de la clavicule jusqu’à l’os mastoïde. Il tourne et incline la tête.","Le droit tourne la tête vers la gauche, et inversement."],
+trapeze:["Trapèze","Musculus trapezius","m","Grand muscle en losange du haut du dos. Il hausse, abaisse et rapproche les omoplates et maintient la tête.","Le stress le contracte souvent : c’est lui qui « tire » dans la nuque."],
+dorsal:["Grand dorsal","Musculus latissimus dorsi","m","Le muscle le plus large du corps, du bas du dos jusqu’à l’humérus. Il tire le bras vers le bas et l’arrière, comme pour grimper.","C’est le muscle phare des nageurs et des grimpeurs, qui dessine le dos en V."],
+droitAbdo:["Droit de l’abdomen","Musculus rectus abdominis","m","Long muscle vertical du ventre, du pubis aux côtes, coupé par des intersections tendineuses : les « tablettes de chocolat ». Il fléchit le tronc.","Tout le monde a des abdos en tablettes : c’est la graisse qui les cache."],
+oblique:["Oblique externe","Musculus obliquus externus abdominis","m","Muscle large du flanc dont les fibres descendent en diagonale vers l’avant. Il tourne et incline le tronc et comprime l’abdomen.","Il travaille quand on tousse, quand on rit ou quand on souffle fort."],
+grandFessier:["Grand fessier","Musculus gluteus maximus","m","Le plus volumineux muscle du corps. Il étend la hanche : se relever, monter un escalier, courir.","Son développement est directement lié à la marche debout."],
+moyenFessier:["Moyen fessier","Musculus gluteus medius","m","Muscle de la hanche situé sous le grand fessier. Il stabilise le bassin à chaque pas, quand on est sur un seul pied.","S’il est faible, le bassin bascule à la marche (signe de Trendelenburg)."],
+droitFemoral:["Droit fémoral","Musculus rectus femoris","m","Chef central du quadriceps, le seul qui croise la hanche. Il étend le genou et lève la cuisse.","C’est le muscle du coup de pied dans le ballon."],
+vasteLat:["Vaste latéral","Musculus vastus lateralis","m","Le plus gros chef du quadriceps, sur le côté de la cuisse. Il étend le genou.","C’est un site classique d’injection intramusculaire chez le nourrisson."],
+vasteMed:["Vaste médial","Musculus vastus medialis","m","Chef du quadriceps en forme de goutte au-dessus du genou, côté interne. Il stabilise la rotule en fin d’extension.","C’est souvent le premier muscle à fondre après une blessure au genou."],
+sartorius:["Sartorius (couturier)","Musculus sartorius","m","Le muscle le plus long du corps : il traverse la cuisse en diagonale, de la hanche au genou. Il fléchit la hanche et le genou.","Il doit son nom à la position assise en tailleur des couturiers, qu’il permet."],
+adducteurs:["Adducteurs (cuisse {f})","Musculi adductores","","Groupe de muscles de la face interne de la cuisse qui rapprochent les jambes l’une de l’autre.","Les cavaliers les sollicitent en permanence pour tenir en selle."],
+bicepsFem:["Biceps fémoral","Musculus biceps femoris","m","Ischio-jambier latéral, à l’arrière de la cuisse. Il fléchit le genou et étend la hanche.","Les ischio-jambiers sont les muscles les plus souvent « claqués » chez les sprinteurs."],
+semiTend:["Semi-tendineux","Musculus semitendinosus","m","Ischio-jambier médial, terminé par un long tendon. Il fléchit le genou et étend la hanche.","Son tendon sert souvent de greffe pour réparer le ligament croisé du genou."],
+gastro:["Gastrocnémien (jumeaux)","Musculus gastrocnemius","m","Muscle du mollet à deux chefs. Il soulève le talon pour se mettre sur la pointe des pieds et aide à plier le genou.","Il fournit l’essentiel de la propulsion lors d’un saut."],
+soleaire:["Soléaire","Musculus soleus","m","Muscle plat sous les gastrocnémiens. Il travaille en continu pour maintenir la posture debout.","On le surnomme le « second cœur » : ses contractions renvoient le sang veineux vers le haut."],
+achille:["Tendon calcanéen (d’Achille)","Tendo calcaneus","m","Le tendon le plus épais et le plus solide du corps, qui relie les muscles du mollet au calcanéus.","Il supporte jusqu’à 10 fois le poids du corps pendant la course."],
+tibialAnt:["Tibial antérieur","Musculus tibialis anterior","m","Muscle de l’avant de la jambe qui relève le pied et soutient la voûte plantaire.","S’il est paralysé, le pied tombe et accroche le sol à chaque pas."],
+masseter:["Masséter","Musculus masseter","m","Puissant muscle masticateur qui ferme la mâchoire.","Proportionnellement à sa taille, c’est l’un des muscles les plus puissants du corps."],
+temporal:["Temporal","Musculus temporalis","m","Muscle en éventail sur le côté du crâne qui ferme la mâchoire et la tire en arrière.","Posez les doigts sur vos tempes et serrez les dents : vous le sentez se contracter."],
+diaphragme:["Diaphragme","Diaphragma","","Muscle en double dôme qui sépare le thorax de l’abdomen. En se contractant il s’abaisse et aspire l’air dans les poumons : c’est le principal muscle de la respiration.","Le hoquet est une contraction involontaire et saccadée du diaphragme."],
+coeur:["Cœur","Cor","","Pompe musculaire à quatre cavités : deux oreillettes et deux ventricules. Le cœur droit envoie le sang pauvre en oxygène vers les poumons, le cœur gauche propulse le sang oxygéné dans tout le corps. Il pèse environ 300 g.","Il bat environ 100 000 fois par jour et pompe près de 7 000 litres de sang."],
+coronaires:["Artères coronaires","Arteriae coronariae","","Petites artères qui naissent de l’aorte et irriguent le muscle cardiaque lui-même. Leur obstruction provoque l’infarctus du myocarde.","Elles se remplissent surtout pendant la diastole, quand le cœur se relâche."],
+aorte:["Aorte","Aorta","","La plus grosse artère du corps (2,5 à 3 cm de diamètre). Elle part du ventricule gauche, forme une crosse, puis descend le long de la colonne jusqu’au bassin, où elle se divise.","À la sortie du cœur, le sang y file à environ 1 mètre par seconde."],
+troncBC:["Tronc brachiocéphalique","Truncus brachiocephalicus","","Première branche de la crosse de l’aorte, à droite. Il se divise en artère carotide commune droite et artère subclavière droite.","Il n’existe qu’à droite : à gauche, ces deux artères naissent directement de l’aorte."],
+carotide:["Artère carotide commune","Arteria carotis communis","f","Grosse artère du cou qui se divise en carotide interne (cerveau) et externe (face et cou).","C’est elle qu’on palpe sur le côté du cou pour prendre le pouls."],
+subclaviere:["Artère subclavière et axillaire","Arteria subclavia","f","Artère qui passe sous la clavicule puis devient axillaire sous l’aisselle. Elle irrigue le membre supérieur et, par l’artère vertébrale, une partie du cerveau.","Elle change de nom trois fois sur son trajet : subclavière, axillaire, puis brachiale."],
+brachiale:["Artère brachiale","Arteria brachialis","f","Artère principale du bras, le long de la face interne de l’humérus.","C’est elle qu’on comprime avec le brassard pour mesurer la tension artérielle."],
+radiale:["Artère radiale","Arteria radialis","f","Artère de l’avant-bras côté pouce, qui irrigue la main.","C’est le pouls qu’on prend au poignet."],
+ulnaire:["Artère ulnaire","Arteria ulnaris","f","Artère de l’avant-bras côté auriculaire. Elle forme avec la radiale les arcades artérielles de la paume.","Le test d’Allen vérifie qu’elle suffit à irriguer la main avant une ponction de l’artère radiale."],
+coeliaque:["Tronc cœliaque","Truncus coeliacus","","Courte artère issue de l’aorte abdominale qui irrigue l’estomac, le foie, la rate et le pancréas.","Ses trois branches forment le « trépied de Haller »."],
+mesenterique:["Artère mésentérique supérieure","Arteria mesenterica superior","","Elle irrigue tout l’intestin grêle et la moitié droite du côlon.","Après un repas, le débit sanguin vers l’intestin peut doubler."],
+renaleA:["Artère rénale","Arteria renalis","f","Artère courte qui part de l’aorte vers chaque rein.","Les reins reçoivent environ 20 % de tout le sang pompé par le cœur."],
+iliaqueA:["Artères iliaques (côté {m})","Arteriae iliacae","","L’aorte se divise en deux artères iliaques communes, chacune se séparant en iliaque interne (organes du bassin) et externe (membre inférieur).","La bifurcation de l’aorte se situe à peu près à la hauteur du nombril."],
+femoraleA:["Artère fémorale","Arteria femoralis","f","Artère principale de la cuisse, qui prolonge l’iliaque externe sous le pli de l’aine.","Elle sert de voie d’accès pour les cathétérismes du cœur."],
+poplitee:["Artère poplitée","Arteria poplitea","f","Artère située dans le creux du genou, entre la fémorale et les artères de la jambe.","On sent son pouls au fond du creux du genou légèrement fléchi."],
+tibialeA:["Artère tibiale antérieure","Arteria tibialis anterior","f","Elle descend à l’avant de la jambe et devient l’artère dorsale du pied.","Le pouls pédieux, sur le dessus du pied, vient d’elle."],
+tibialeP:["Artère tibiale postérieure","Arteria tibialis posterior","f","Elle descend dans le mollet et passe derrière la malléole médiale jusqu’à la plante du pied.","Son pouls se prend juste derrière la cheville, côté interne."],
+pulmA:["Artères pulmonaires","Truncus pulmonalis","","Les seules artères qui transportent du sang pauvre en oxygène : elles partent du ventricule droit vers les poumons. Elles sont donc en bleu, par convention.","Le sang traverse les capillaires pulmonaires en moins d’une seconde."],
+vcs:["Veine cave supérieure","Vena cava superior","","Grosse veine qui ramène au cœur droit le sang de la tête, du cou et des bras.","Elle ne possède pas de valvules."],
+vci:["Veine cave inférieure","Vena cava inferior","","La plus grosse veine du corps : elle remonte le long de la colonne et ramène au cœur le sang de l’abdomen et des jambes.","Allongée sur le dos, une femme enceinte peut la comprimer : d’où le conseil de dormir sur le côté gauche."],
+jugulaire:["Veine jugulaire interne","Vena jugularis interna","f","Elle draine le sang du cerveau et de la face vers le cœur.","Son gonflement visible au cou peut révéler une insuffisance cardiaque."],
+brachioV:["Veine brachiocéphalique","Vena brachiocephalica","f","Formée par la jugulaire interne et la subclavière ; les deux brachiocéphaliques se rejoignent pour former la veine cave supérieure.","La gauche est presque deux fois plus longue que la droite."],
+subclavV:["Veine subclavière et axillaire","Vena subclavia","f","Elle ramène le sang profond du bras vers le cœur, sous la clavicule.","On y place souvent les cathéters veineux centraux."],
+cephalique:["Veine céphalique","Vena cephalica","f","Veine superficielle du bord externe du bras, visible sous la peau.","On l’utilise volontiers pour poser une perfusion."],
+basilique:["Veine basilique","Vena basilica","f","Veine superficielle de la face interne du bras et de l’avant-bras.","Au pli du coude, elle communique avec la céphalique : c’est là qu’on fait les prises de sang."],
+renaleV:["Veine rénale","Vena renalis","f","Elle ramène le sang filtré du rein vers la veine cave inférieure.","La gauche passe entre l’aorte et l’artère mésentérique, où elle peut être pincée (syndrome du casse-noisette)."],
+porte:["Veine porte","Vena portae hepatis","","Elle collecte le sang de l’intestin, de l’estomac et de la rate, chargé en nutriments, et l’apporte au foie avant qu’il rejoigne le cœur.","Le foie reçoit environ 75 % de son sang par la veine porte."],
+iliaqueV:["Veines iliaques (côté {m})","Venae iliacae","","Elles drainent le bassin et le membre inférieur puis se rejoignent pour former la veine cave inférieure.","La gauche, croisée par l’artère iliaque droite, peut être comprimée (syndrome de May-Thurner)."],
+femoraleV:["Veine fémorale et poplitée","Vena femoralis","f","Veines profondes de la cuisse et du genou, qui accompagnent les artères du même nom.","C’est là que se forment la plupart des phlébites (thromboses veineuses profondes)."],
+saphene:["Grande veine saphène","Vena saphena magna","f","La plus longue veine du corps : superficielle, elle monte du pied jusqu’à l’aine le long de la face interne de la jambe.","Elle sert souvent de greffon pour les pontages coronariens."],
+pulmV:["Veines pulmonaires","Venae pulmonales","","Les seules veines qui transportent du sang riche en oxygène : elles ramènent le sang des poumons vers l’oreillette gauche. Elles sont donc en rouge, par convention.","Il y en a normalement quatre, deux par poumon."],
+hemisphere:["Hémisphère cérébral","Hemispherium cerebri","m","Moitié du cerveau, couverte d’un cortex plissé en circonvolutions et divisée en lobes (frontal, pariétal, temporal, occipital). Chaque hémisphère commande surtout la moitié opposée du corps.","Le cerveau compte environ 86 milliards de neurones et consomme 20 % de l’énergie du corps."],
+cervelet:["Cervelet","Cerebellum","","Situé sous l’arrière du cerveau, il coordonne les mouvements, l’équilibre et l’apprentissage des gestes.","Il ne fait que 10 % du volume de l’encéphale mais contient plus de la moitié de ses neurones."],
+tronc:["Tronc cérébral","Truncus encephali","","Il relie le cerveau à la moelle épinière et contrôle les fonctions vitales automatiques : respiration, rythme cardiaque, déglutition, éveil.","10 des 12 paires de nerfs crâniens en partent."],
+moelle:["Moelle épinière","Medulla spinalis","","Cordon nerveux d’environ 45 cm logé dans le canal vertébral. Elle transmet les messages entre le cerveau et le corps et gère les réflexes.","Elle s’arrête vers la 1re vertèbre lombaire : la colonne grandit plus vite qu’elle pendant l’enfance."],
+queue:["Queue de cheval","Cauda equina","","Faisceau de racines nerveuses qui prolonge la moelle épinière dans le canal lombaire et sacré.","Son nom vient de son aspect, qui rappelle une queue de cheval."],
+spinaux:["Nerfs spinaux (côté {m})","Nervi spinales","","31 paires de nerfs qui sortent de la moelle entre les vertèbres. Chacun est mixte : il transporte à la fois des informations sensitives et des ordres moteurs.","Chaque nerf innerve une bande de peau précise, appelée dermatome."],
+intercostaux:["Nerfs intercostaux (côté {m})","Nervi intercostales","","Nerfs qui longent le bord inférieur des côtes et innervent les muscles et la peau de la paroi du thorax.","Le zona suit souvent le trajet d’un nerf intercostal, en bande d’un seul côté."],
+plexusB:["Plexus brachial","Plexus brachialis","m","Réseau de nerfs (racines C5 à T1) qui s’entrecroisent entre le cou et l’aisselle pour donner tous les nerfs du membre supérieur.","Il peut être étiré lors d’une chute de moto ou d’un accouchement difficile."],
+median:["Nerf médian","Nervus medianus","m","Il descend au milieu de l’avant-bras et passe dans le canal carpien. Il commande la flexion des doigts et la sensibilité du pouce à l’annulaire.","Sa compression au poignet provoque le syndrome du canal carpien."],
+ulnaireN:["Nerf ulnaire","Nervus ulnaris","m","Il passe derrière le coude et commande les petits muscles de la main et la sensibilité de l’auriculaire.","C’est lui qui envoie la décharge électrique quand on se cogne le coude."],
+radial:["Nerf radial","Nervus radialis","m","Il s’enroule derrière l’humérus et commande tous les muscles qui étendent le coude, le poignet et les doigts.","Comprimé par un dossier de chaise pendant le sommeil, il fait « tomber » la main."],
+musculocutane:["Nerf musculo-cutané","Nervus musculocutaneus","m","Il commande les muscles de l’avant du bras (biceps, brachial) puis donne la sensibilité de l’avant-bras.","Il traverse le muscle coraco-brachial, d’où son trajet caractéristique."],
+axillaire:["Nerf axillaire","Nervus axillaris","m","Il contourne le col de l’humérus et commande le deltoïde.","Il peut être lésé lors d’une luxation de l’épaule."],
+femoral:["Nerf fémoral","Nervus femoralis","m","Issu du plexus lombaire, il passe sous le pli de l’aine et commande le quadriceps.","Le réflexe rotulien, le coup de marteau sur le genou, teste ce nerf."],
+sciatique:["Nerf sciatique","Nervus ischiadicus","m","Le plus gros et le plus long nerf du corps, large comme un pouce. Il descend à l’arrière de la cuisse et commande presque toute la jambe et le pied.","La « sciatique » est une douleur due à la compression de ses racines, souvent par une hernie discale."],
+tibialN:["Nerf tibial","Nervus tibialis","m","Branche du sciatique qui descend dans le mollet jusqu’à la plante du pied.","Il commande les muscles qui permettent de se mettre sur la pointe des pieds."],
+fibulaire:["Nerf fibulaire commun","Nervus fibularis communis","m","Branche du sciatique qui contourne la tête de la fibula pour innerver l’avant de la jambe et le dessus du pied.","Très superficiel au genou, il peut être comprimé quand on croise les jambes trop longtemps."],
+vague:["Nerf vague (X)","Nervus vagus","m","Le plus long des nerfs crâniens : il descend du tronc cérébral jusqu’à l’abdomen. Il ralentit le cœur et règle la digestion et la respiration.","Son nom signifie « vagabond » en latin, à cause de son long trajet."],
+phrenique:["Nerf phrénique","Nervus phrenicus","m","Issu des racines C3 à C5, il descend le long du cœur jusqu’au diaphragme, qu’il commande.","Les anglophones retiennent : « C3, 4, 5 keeps the diaphragm alive »."],
+optique:["Nerf optique","Nervus opticus","m","Il transmet l’image de la rétine au cerveau. Une partie de ses fibres croise vers l’autre côté au chiasma optique.","Chaque œil a un point aveugle, là où le nerf optique quitte la rétine."],
+oeil:["Œil","Oculus","m","Organe de la vision : la cornée et le cristallin focalisent la lumière sur la rétine, qui la convertit en signaux nerveux.","L’œil humain distingue environ 10 millions de nuances de couleurs."],
+larynx:["Larynx","Larynx","","Organe de la voix à l’entrée de la trachée, qui contient les cordes vocales. Le cartilage thyroïde forme la « pomme d’Adam ».","Les cordes vocales vibrent de 100 à plus de 1 000 fois par seconde."],
+trachee:["Trachée","Trachea","","Tube d’environ 12 cm renforcé par 16 à 20 anneaux de cartilage en C, qui conduit l’air jusqu’aux bronches.","Ses cils vibratiles font remonter le mucus et les poussières vers la gorge."],
+bronches:["Arbre bronchique","Arbor bronchialis","m","Les bronches se divisent environ 23 fois, jusqu’aux bronchioles puis aux alvéoles où se font les échanges gazeux.","Mises bout à bout, toutes les voies aériennes mesureraient environ 2 400 km."],
+poumon:["Poumon","Pulmo","m","Organe spongieux où l’oxygène passe dans le sang et où le CO₂ est rejeté. Le poumon droit a 3 lobes, le gauche 2 pour laisser la place au cœur.","Ses ~480 millions d’alvéoles offrent une surface d’échange de 70 à 100 m²."],
+langue:["Langue","Lingua","","Muscle très mobile qui sert à mâcher, avaler et parler. Elle porte les papilles gustatives.","Elle est formée de 8 muscles différents."],
+oesophage:["Œsophage","Oesophagus","","Tube musculaire d’environ 25 cm qui conduit les aliments du pharynx à l’estomac par des vagues de contraction (péristaltisme).","Grâce au péristaltisme, on peut avaler même la tête en bas."],
+estomac:["Estomac","Gaster","","Poche musculaire en J qui brasse les aliments avec un suc gastrique très acide (pH 1,5 à 3,5) pour former le chyme.","Sa muqueuse se renouvelle tous les 3 à 5 jours pour ne pas se digérer elle-même."],
+duodenum:["Duodénum","Duodenum","","Première portion de l’intestin grêle (environ 25 cm), en forme de C. Il reçoit la bile et le suc pancréatique.","Son nom signifie « douze doigts », sa longueur estimée dans l’Antiquité."],
+pancreas:["Pancréas","Pancreas","","Glande à double rôle : digestive (enzymes) et hormonale (insuline et glucagon, qui règlent le taux de sucre dans le sang).","Il produit environ 1,5 litre de suc pancréatique par jour."],
+foie:["Foie","Hepar","","La plus grosse glande du corps (environ 1,5 kg). Il produit la bile, stocke le sucre, fabrique des protéines et détoxifie le sang.","Il peut repousser à partir de seulement 25 % de sa masse."],
+vesicule:["Vésicule biliaire","Vesica biliaris","","Petit réservoir sous le foie qui stocke et concentre la bile, libérée dans le duodénum pendant les repas.","On vit très bien sans elle."],
+rate:["Rate","Splen","","Organe lymphoïde du flanc gauche qui filtre le sang, élimine les globules rouges usés et participe à l’immunité.","Elle garde une réserve de sang qu’elle libère en cas d’effort ou d’hémorragie."],
+grele:["Intestin grêle","Intestinum tenue","","Tube de 5 à 7 m replié dans l’abdomen (duodénum, jéjunum, iléon). C’est là que la plupart des nutriments passent dans le sang.","Grâce à ses replis et villosités, sa surface atteint environ 30 m²."],
+colon:["Gros intestin (côlon)","Intestinum crassum","","Il encadre l’intestin grêle : côlon ascendant, transverse, descendant, sigmoïde, puis rectum. Il absorbe l’eau et héberge le microbiote.","Il abrite environ 38 000 milliards de bactéries, autant que de cellules humaines."],
+appendice:["Appendice","Appendix vermiformis","","Petit diverticule du cæcum. Longtemps jugé inutile, il servirait de réserve de bonnes bactéries.","L’appendicite est la première cause de chirurgie abdominale en urgence."],
+rein:["Rein","Ren","m","Organe en forme de haricot qui filtre le sang (environ 180 litres par jour) pour produire l’urine et règle la tension et l’équilibre en sels.","Chaque rein contient environ un million de minuscules filtres, les néphrons."],
+uretere:["Uretère","Ureter","m","Conduit musculaire de 25 à 30 cm qui amène l’urine du rein à la vessie.","Un calcul coincé dans l’uretère provoque la colique néphrétique, l’une des douleurs les plus intenses."],
+vessie:["Vessie","Vesica urinaria","","Réservoir musculaire qui stocke l’urine (400 à 600 ml) avant de la vider.","L’envie d’uriner apparaît vers 150 à 200 ml."],
+thyroide:["Thyroïde","Glandula thyroidea","","Glande en forme de papillon devant la trachée. Elle produit les hormones qui règlent le métabolisme (T3, T4) et la calcitonine.","Elle a besoin d’iode pour fonctionner, d’où le sel iodé."],
+surrenale:["Glande surrénale","Glandula suprarenalis","f","Petite glande posée au sommet du rein qui produit l’adrénaline (stress) et le cortisol.","L’adrénaline peut doubler le rythme cardiaque en quelques secondes."],
+hypophyse:["Hypophyse","Hypophysis","","Glande de la taille d’un petit pois sous le cerveau, véritable chef d’orchestre des autres glandes (croissance, thyroïde, surrénales…).","Elle est logée dans une niche osseuse appelée la selle turcique."]
+};
+
+/* =========================================================
+   OUTILS GÉOMÉTRIQUES
+   ========================================================= */
+const V = (x,y,z) => new THREE.Vector3(x,y,z);
+const X = V(1,0,0), Y = V(0,1,0), Z = V(0,0,1);
+const clamp = (x,a,b) => Math.min(b,Math.max(a,x));
+const lerp = (a,b,t) => a+(b-a)*t;
+const sstep = (a,b,x) => { const t = clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+const gauss = (x,m,w) => Math.exp(-((x-m)/w)*((x-m)/w));
+let seed = 11;
+const rnd = () => { seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; };
+const vv = p => p.isVector3 ? p.clone() : V(p[0],p[1],p[2]);
+const crv = pts => new THREE.CatmullRomCurve3(pts.map(vv), false, 'centripetal');
+const seg = (a,b) => new THREE.LineCurve3(vv(a), vv(b));
+
+// profils de rayon
+const cst = r => () => r;
+const taper = (a,b) => t => lerp(a,b,t);
+const knob = (ra,rs,rb,w=0.13) => t => {
+  const e0 = Math.exp(-(t/w)*(t/w)), e1 = Math.exp(-((1-t)/w)*((1-t)/w));
+  const r = rs + (ra-rs)*e0 + (rb-rs)*e1;
+  return r * Math.max(0.3, Math.min(1, Math.sqrt(Math.min(t,1-t)/0.035)));
+};
+const fus = (rx,ry=rx,min=0.22,p=0.75) => t => { const k = Math.max(min, Math.pow(Math.sin(Math.PI*t),p)); return [rx*k, ry*k]; };
+const table = rows => t => {
+  let i = 0; while (i < rows.length-2 && t > rows[i+1][0]) i++;
+  const a = rows[i], b = rows[i+1], k = sstep(a[0],b[0],t);
+  return a.length > 2 ? [lerp(a[1],b[1],k), lerp(a[2],b[2],k)] : lerp(a[1],b[1],k);
+};
+
+// tube à section elliptique variable
+function tube(c, rf, o={}){
+  const L = c.getLength();
+  const sg = o.seg || clamp(Math.round(L*260), 6, 220), rad = o.rad || 10, hint = o.hint || Z, caps = o.caps !== false;
+  const pos=[], nor=[], uv=[], idx=[], rings=[];
+  const P=new THREE.Vector3(), T=new THREE.Vector3(), B=new THREE.Vector3(), N=new THREE.Vector3(), h=new THREE.Vector3();
+  for (let i=0;i<=sg;i++){
+    const t=i/sg; c.getPointAt(t,P); c.getTangentAt(t,T); T.normalize();
+    h.copy(hint); if (Math.abs(T.dot(h))>0.92) h.copy(Math.abs(T.y)<0.9 ? Y : X);
+    B.crossVectors(T,h).normalize(); N.crossVectors(B,T).normalize();
+    const r=rf(t), rx=Array.isArray(r)?r[0]:r, ry=Array.isArray(r)?r[1]:r;
+    rings.push({P:P.clone(),T:T.clone(),B:B.clone(),N:N.clone(),rx,ry});
+    for (let j=0;j<=rad;j++){
+      const a=j/rad*Math.PI*2, ca=Math.cos(a), sa=Math.sin(a);
+      pos.push(P.x+B.x*ca*rx+N.x*sa*ry, P.y+B.y*ca*rx+N.y*sa*ry, P.z+B.z*ca*rx+N.z*sa*ry);
+      const nx=B.x*ca*ry+N.x*sa*rx, ny=B.y*ca*ry+N.y*sa*rx, nz=B.z*ca*ry+N.z*sa*rx, l=Math.hypot(nx,ny,nz)||1;
+      nor.push(nx/l,ny/l,nz/l); uv.push(j/rad, t*(o.uvl||L*6));
+    }
+  }
+  for (let i=0;i<sg;i++) for (let j=0;j<rad;j++){ const a=i*(rad+1)+j, b=a+rad+1; idx.push(a,b,a+1, b,b+1,a+1); }
+  if (caps){
+    for (const [k,sgn] of [[0,-1],[sg,1]]){
+      const R=rings[k], base=pos.length/3;
+      pos.push(R.P.x,R.P.y,R.P.z); nor.push(R.T.x*sgn,R.T.y*sgn,R.T.z*sgn); uv.push(.5,.5);
+      for (let j=0;j<=rad;j++){
+        const a=j/rad*Math.PI*2, ca=Math.cos(a), sa=Math.sin(a);
+        pos.push(R.P.x+R.B.x*ca*R.rx+R.N.x*sa*R.ry, R.P.y+R.B.y*ca*R.rx+R.N.y*sa*R.ry, R.P.z+R.B.z*ca*R.rx+R.N.z*sa*R.ry);
+        nor.push(R.T.x*sgn,R.T.y*sgn,R.T.z*sgn); uv.push(.5+ca*.5,.5+sa*.5);
+      }
+      for (let j=0;j<rad;j++){ if (sgn<0) idx.push(base,base+1+j,base+2+j); else idx.push(base,base+2+j,base+1+j); }
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); return g;
+}
+
+// ellipsoïde déformable
+function blob(rx,ry,rz,def,ws=40,hs=28){
+  let g=new THREE.SphereGeometry(1,ws,hs); g.deleteAttribute('normal'); g.deleteAttribute('uv'); g=mergeVertices(g);
+  const p=g.attributes.position, n=p.count, uv=new Float32Array(n*2), v=new THREE.Vector3(), u=new THREE.Vector3();
+  for (let i=0;i<n;i++){
+    u.fromBufferAttribute(p,i); v.set(u.x*rx,u.y*ry,u.z*rz); if (def) def(v,u);
+    p.setXYZ(i,v.x,v.y,v.z);
+    uv[i*2]=Math.atan2(u.z,u.x)/(2*Math.PI)+.5; uv[i*2+1]=Math.acos(clamp(u.y,-1,1))/Math.PI;
+  }
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2)); g.computeVertexNormals(); return g;
+}
+
+// surface entre deux courbes (muscles plats, os plats)
+function sheet(A,B,off,nu=26,nv=14){
+  const pos=[],uv=[],idx=[], a=new THREE.Vector3(), b=new THREE.Vector3();
+  for (let i=0;i<=nu;i++){ const u=i/nu; A.getPoint(u,a); B.getPoint(u,b);
+    for (let j=0;j<=nv;j++){ const w=j/nv, p=a.clone().lerp(b,w); if (off) p.add(off(u,w)); pos.push(p.x,p.y,p.z); uv.push(u*2,w*3); } }
+  for (let i=0;i<nu;i++) for (let j=0;j<nv;j++){ const k=i*(nv+1)+j; idx.push(k,k+nv+1,k+1, k+nv+1,k+nv+2,k+1); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+
+function at(g,p,r,s){
+  const q = r ? (r.isQuaternion ? r : new THREE.Quaternion().setFromEuler(new THREE.Euler(r[0],r[1],r[2]))) : new THREE.Quaternion();
+  g.applyMatrix4(new THREE.Matrix4().compose(vv(p), q, s ? vv(s) : V(1,1,1))); return g;
+}
+const M = (...gs) => mergeGeometries(gs.flat().filter(Boolean), false);
+const ball = (p,r) => at(blob(r,r,r,null,16,12), p);
+
+/* =========================================================
+   TEXTURES & MATÉRIAUX
+   ========================================================= */
+function canvasTex(w,h,draw,srgb){
+  const c=document.createElement('canvas'); c.width=w; c.height=h; draw(c.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4;
+  if (srgb) t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+const fiberTex = canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#d9d9d9'; g.fillRect(0,0,w,h);
+  for (let i=0;i<260;i++){ const x=rnd()*w, l=rnd()<.5;
+    g.strokeStyle=l?`rgba(255,255,255,${.15+rnd()*.35})`:`rgba(90,90,90,${.12+rnd()*.3})`; g.lineWidth=.6+rnd()*2.2;
+    g.beginPath(); g.moveTo(x,0); g.bezierCurveTo(x+rnd()*6-3,h*.33,x+rnd()*6-3,h*.66,x,h); g.stroke(); }
+}, true);
+fiberTex.repeat.set(2,1);
+const grainTex = canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#808080'; g.fillRect(0,0,w,h);
+  for (let i=0;i<5000;i++){ const v=Math.floor(90+rnd()*90); g.fillStyle=`rgba(${v},${v},${v},.5)`; const s=.6+rnd()*2.2; g.fillRect(rnd()*w,rnd()*h,s,s); }
+});
+grainTex.repeat.set(1.5,1.5);
+
+const C = s => new THREE.Color(s);
+const MAT = {
+  bone: (col='#ebe0c6') => new THREE.MeshPhysicalMaterial({color:col,roughness:.58,clearcoat:.2,clearcoatRoughness:.55,bumpMap:grainTex,bumpScale:.25,side:THREE.DoubleSide}),
+  cart: () => new THREE.MeshPhysicalMaterial({color:'#bfe1f0',roughness:.28,clearcoat:.8,clearcoatRoughness:.2}),
+  muscle: (col='#c23d37') => new THREE.MeshPhysicalMaterial({color:col,roughness:.42,clearcoat:.45,clearcoatRoughness:.3,map:fiberTex,bumpMap:fiberTex,bumpScale:.6,sheen:.6,sheenColor:C('#ff9a8a'),sheenRoughness:.5,side:THREE.DoubleSide}),
+  tendon: () => new THREE.MeshPhysicalMaterial({color:'#f2e8dc',roughness:.35,clearcoat:.7,map:fiberTex,bumpMap:fiberTex,bumpScale:1}),
+  artery: (col='#d4232d') => new THREE.MeshPhysicalMaterial({color:col,roughness:.26,clearcoat:.6,clearcoatRoughness:.4}),
+  vein: (col='#2a58d0') => new THREE.MeshPhysicalMaterial({color:col,roughness:.3,clearcoat:.6,clearcoatRoughness:.4}),
+  nerve: () => new THREE.MeshPhysicalMaterial({color:'#f4cc4a',roughness:.38,clearcoat:.6,emissive:C('#6a4800'),emissiveIntensity:.45}),
+  organ: (col, o={}) => new THREE.MeshPhysicalMaterial(Object.assign({color:col,roughness:.36,clearcoat:.5,clearcoatRoughness:.4,bumpMap:grainTex,bumpScale:.15},o))
+};
+
+/* =========================================================
+   SCÈNE
+   ========================================================= */
+const canvas = $('#c');
+const isMobile = matchMedia('(pointer:coarse)').matches || innerWidth < 820;
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+const PR = Math.min(devicePixelRatio, isMobile ? 1.6 : 2);
+renderer.setPixelRatio(PR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.background = canvasTex(32,512,(g,w,h)=>{ const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'#0b1a30'); gr.addColorStop(.55,'#071121'); gr.addColorStop(1,'#03060c'); g.fillStyle=gr; g.fillRect(0,0,w,h); }, true);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = .75;
+const camera = new THREE.PerspectiveCamera(34, innerWidth/innerHeight, 0.01, 50);
+camera.position.set(0,1.2,5.2);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0,0.95,0);
+controls.enableDamping = true; controls.dampingFactor = .08;
+controls.minDistance = .08; controls.maxDistance = 7;
+controls.zoomToCursor = !isMobile;
+controls.autoRotateSpeed = 1.2;
+
+const key = new THREE.DirectionalLight('#fff4e6', 2.0); key.position.set(1.5,3,2.5); scene.add(key);
+const rim = new THREE.DirectionalLight('#6fb7ff', 1.6); rim.position.set(-2,2,-2.5); scene.add(rim);
+const fill = new THREE.HemisphereLight('#bcd8ff','#1a1010',.35); scene.add(fill);
+
+// plateau de scanner
+{
+  const tex = canvasTex(512,512,(g,w,h)=>{ const gr=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2); gr.addColorStop(0,'rgba(86,214,255,.35)'); gr.addColorStop(.45,'rgba(40,120,200,.12)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(120,220,255,.35)'; g.lineWidth=2; for (const r of [.3,.52,.7,.9]){ g.beginPath(); g.arc(w/2,h/2,r*w/2,0,Math.PI*2); g.stroke(); }
+    for (let a=0;a<0;a++){ const an=a/72*Math.PI*2; g.beginPath(); g.moveTo(w/2+Math.cos(an)*w*.44,h/2+Math.sin(an)*h*.44); g.lineTo(w/2+Math.cos(an)*w*.47,h/2+Math.sin(an)*h*.47); g.stroke(); } }, true);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(.75,64), new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+  floor.rotation.x = -Math.PI/2; floor.position.y = .001; floor.userData.spin = true; scene.add(floor);
+  window.__floor = floor;
+}
+
+const rt = new THREE.WebGLRenderTarget(innerWidth*PR, innerHeight*PR, {type:THREE.HalfFloatType, samples:4});
+const composer = new EffectComposer(renderer, rt);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), .32, .5, 1.4);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* =========================================================
+   REGISTRE DES STRUCTURES
+   ========================================================= */
+const root = new THREE.Group(); scene.add(root);
+const parts = {}, meshes = [];
+const layers = {}; for (const k of LORDER) layers[k] = {on:k!=='muscle', op:k==='skin'?.6:1};
+function part(id,key,side,sys,o={}){
+  if (parts[id]) return parts[id];
+  const inf = INFO[key] || [key,'','','',''];
+  let name = o.name || inf[0];
+  if (side){
+    const wM = side>0?'gauche':'droit', wF = side>0?'gauche':'droite';
+    if (/\{[mf]\}/.test(name)) name = name.replace('{m}',wM).replace('{f}',wF);
+    else name += ' ' + (inf[2]==='f' ? wF : wM);
+  } else name = name.replace(/ ?\{[mf]\}/,'').replace(/ ?\((côté|main|pied|cuisse) \)/,'');
+  return parts[id] = {id,key,side,sys,name,latin:inf[1],desc:o.desc||inf[3],fact:o.fact||inf[4],meshes:[],hidden:false,baseOp:o.op??1,nopick:!!o.nopick};
+}
+function add(id,key,side,sys,geo,mat,o={}){
+  const p = part(id,key,side,sys,o);
+  const m = new THREE.Mesh(geo,mat); m.userData.pid = id;
+  if (mat.emissive){ mat.userData.be = mat.emissive.clone(); mat.userData.bi = mat.emissiveIntensity; }
+  p.meshes.push(m); (o.parent || root).add(m); meshes.push(m); return m;
+}
+const sd = s => s>0 ? 'L' : 'R';
+const paths = [];
+function flow(c,type,pid,r){
+  const N=90, pts=[]; for (let i=0;i<N;i++) pts.push(c.getPointAt(i/(N-1)));
+  if (type==='v' || type==='pv') pts.reverse();
+  const arr=new Float32Array(N*3); pts.forEach((p,i)=>arr.set([p.x,p.y,p.z],i*3));
+  paths.push({arr,N,type,pid,r,len:c.getLength()});
+}
+function vessel(id,key,side,sys,pts,r0,r1,o={}){
+  const c = crv(pts);
+  add(id,key,side,sys,tube(c,taper(r0,r1),{rad:10}), o.mat || (sys==='vein'?MAT.vein():MAT.artery()), o);
+  if (o.flow!==false) flow(c, o.ft || (sys==='vein'?'v':'a'), id, (r0+r1)/2);
+  return c;
+}
+function nerve(id,key,side,pts,r0,r1,o={}){
+  const c = crv(pts);
+  add(id,key,side,'nerve',tube(c,taper(r0,r1),{rad:8}),MAT.nerve(),o);
+  if (o.flow!==false) flow(c,'n',id,(r0+r1)/2);
+  return c;
+}
+
+/* =========================================================
+   SQUELETTE
+   ========================================================= */
+const arm = s => ({Sh:V(s*0.175,1.415,-0.015), E:V(s*0.235,1.125,-0.02), W:V(s*0.285,0.87,0.012)});
+const fp = (s,x,y,z) => V(s*(x+z*0.12), y, z);
+const VP = {};
+const spine = crv([[0,0.985,-0.05],[0,1.05,-0.03],[0,1.12,-0.036],[0,1.19,-0.056],[0,1.27,-0.077],[0,1.35,-0.079],[0,1.42,-0.066],[0,1.47,-0.05],[0,1.515,-0.04],[0,1.556,-0.036]]);
+const VL = [];
+for (let i=5;i>=1;i--) VL.push({n:'L'+i,r:'L',k:i,w:1.35});
+for (let i=12;i>=1;i--) VL.push({n:'T'+i,r:'T',k:i,w:1});
+for (let i=7;i>=1;i--) VL.push({n:'C'+i,r:'C',k:i,w:.72});
+const discG = [];
+
+function buildSkeleton(){
+  // ---------- crâne
+  const cran = blob(0.073,0.083,0.095,(v,u)=>{
+    if (u.y < -0.35) v.y = -0.029 + (v.y+0.029)*0.55;
+    for (const s of [1,-1]){ const dx=v.x-s*0.031, dy=v.y+0.033, d=Math.sqrt(dx*dx+dy*dy);
+      if (u.z>0.3 && d<0.021) v.z -= 0.024*Math.sqrt(1-(d/0.021)*(d/0.021)); }
+    v.x *= 1 - 0.07*Math.exp(-((u.y+0.15)*(u.y+0.15))/0.05)*Math.max(0,1-Math.abs(u.z)*1.4);
+  },72,54);
+  at(cran,[0,1.66,-0.01]);
+  const face = at(blob(0.044,0.034,0.04,(v,u)=>{ const d=Math.hypot(v.x,v.y-0.012); if (u.z>0.4 && d<0.011) v.z -= 0.014*Math.sqrt(1-(d/0.011)*(d/0.011)); },40,30),[0,1.585,0.048]);
+  const zyg = [1,-1].map(s=>tube(crv([[s*0.045,1.605,0.065],[s*0.062,1.6,0.04],[s*0.066,1.598,0.004]]),cst(0.0045),{rad:8}));
+  const mast = [1,-1].map(s=>ball([s*0.058,1.6,-0.03],0.008));
+  add('crane','crane',0,'skeleton',M(cran,face,zyg,mast),MAT.bone());
+  const mand = tube(crv([[0.056,1.625,-0.005],[0.058,1.585,0],[0.052,1.548,0.012],[0.034,1.536,0.058],[0,1.532,0.083],[-0.034,1.536,0.058],[-0.052,1.548,0.012],[-0.058,1.585,0],[-0.056,1.625,-0.005]]), t=>0.0068+0.0035*gauss(t,.5,.1), {rad:10});
+  const cor = [1,-1].map(s=>tube(seg([s*0.05,1.56,0.02],[s*0.049,1.598,0.026]),taper(0.0045,0.0025),{rad:8}));
+  add('mandibule','mandibule',0,'skeleton',M(mand,cor),MAT.bone());
+
+  // ---------- colonne
+  const tot = VL.reduce((a,v)=>a+v.w,0); let acc = 0, prev = null;
+  for (const v of VL){
+    const t0=acc/tot, t1=(acc+v.w)/tot; acc+=v.w;
+    const gp=0.11*(t1-t0), ta=t0+gp, tb=t1-gp;
+    const A=spine.getPointAt(ta), Bp=spine.getPointAt(tb), Mi=spine.getPointAt((ta+tb)/2), T=spine.getTangentAt((ta+tb)/2).normalize();
+    const back = new THREE.Vector3().crossVectors(T,X).normalize(), front = back.clone().negate();
+    const rb = v.r==='L' ? 0.019+(v.k-1)*0.0008 : v.r==='T' ? 0.013+(v.k-1)/11*0.0055 : 0.0092+(v.k-2)*0.0003;
+    const rx=rb*1.28, ry=rb, rc = v.r==='C'?0.0075:v.r==='T'?0.0064:0.0082;
+    const Cc = Mi.clone().addScaledVector(back, ry+rc+0.002);
+    const gs=[];
+    if (v.n!=='C1') gs.push(tube(seg(A,Bp),t=>{const e=Math.min(t,1-t), k=Math.min(1,0.84+0.16*Math.sqrt(e/0.2)); return [rx*k,ry*k];},{seg:8,rad:18,hint:Z}));
+    const ar = v.r==='L'?0.0042:v.r==='T'?0.0033:0.0029;
+    gs.push(tube(crv([Mi.clone().addScaledVector(X,rx*0.6).addScaledVector(back,ry*0.75), Cc.clone().addScaledVector(X,rc+0.004).addScaledVector(back,-rc*0.2), Cc.clone().addScaledVector(back,rc+0.0045), Cc.clone().addScaledVector(X,-rc-0.004).addScaledVector(back,-rc*0.2), Mi.clone().addScaledVector(X,-rx*0.6).addScaledVector(back,ry*0.75)]),cst(ar),{rad:8}));
+    let sl = v.r==='C'?0.02:v.r==='T'?0.034:0.03, sdp = v.r==='C'?0.006:v.r==='L'?0.004:(v.k<=4||v.k>=10?0.012:0.024);
+    if (v.n==='C7') sl=0.034; if (v.n==='C2') sl=0.026; if (v.n==='C1') sl=0.008;
+    const sr = v.r==='L'?[0.0035,0.0078]:v.r==='T'?[0.0033,0.0042]:[0.0028,0.0034];
+    gs.push(tube(seg(Cc.clone().addScaledVector(back,rc+0.003), Cc.clone().addScaledVector(back,rc+sl).addScaledVector(Y,-sdp)), t=>[sr[0]*(1-0.35*t),sr[1]*(1-0.35*t)],{rad:8,hint:Z}));
+    const tl = v.r==='C'?0.022:v.r==='T'?(0.033-(v.k-1)*0.0012):0.036, tbk = v.r==='T'?0.01:v.r==='C'?-0.004:0.002;
+    for (const s of [1,-1]) gs.push(tube(seg(Cc.clone().addScaledVector(X,s*(rc+0.002)).addScaledVector(back,-0.002), Cc.clone().addScaledVector(X,s*tl).addScaledVector(back,tbk).addScaledVector(Y,0.002)), taper(0.0036,0.0027),{rad:8}));
+    if (v.n==='C1'){
+      gs.push(tube(crv([Cc.clone().addScaledVector(X,0.014), Cc.clone().addScaledVector(front,0.012).addScaledVector(X,0.009), Cc.clone().addScaledVector(front,0.016), Cc.clone().addScaledVector(front,0.012).addScaledVector(X,-0.009), Cc.clone().addScaledVector(X,-0.014)]),cst(0.0032),{rad:8}));
+      for (const s of [1,-1]) gs.push(ball(Cc.clone().addScaledVector(X,s*0.0135).addScaledVector(front,0.004),0.0058));
+    }
+    if (v.n==='C2') gs.push(tube(seg(Bp, Bp.clone().addScaledVector(T,0.017)),taper(0.0046,0.0034),{rad:10}));
+    const key = v.n==='C1'?'atlas':v.n==='C2'?'axis':'v'+v.r;
+    const reg = v.r==='C'?'cervicale':v.r==='T'?'thoracique':'lombaire';
+    add('v-'+v.n,key,0,'skeleton',M(gs),MAT.bone(),{name: v.n==='C1'||v.n==='C2' ? undefined : `Vertèbre ${reg} ${v.n}`});
+    if (prev && v.n!=='C1') discG.push(tube(seg(prev.top,A),()=>[(prev.rx+rx)/2*0.96,(prev.ry+ry)/2*0.96],{seg:2,rad:18,hint:Z}));
+    VP[v.n] = {M:Mi,C:Cc,T,back,rx,ry,rc,top:Bp,bot:A};
+    prev = {top:Bp,rx,ry};
+  }
+  // sacrum & coccyx
+  const sac = blob(0.048,0.055,0.018,(v,u)=>{ const s=(u.y+1)/2; v.x*=0.35+0.65*s; v.z += -0.015*(1-s) - 0.006*(1-u.x*u.x) + 0.0012*Math.sin(u.y*22); },40,30);
+  add('sacrum','sacrum',0,'skeleton',at(sac,[0,0.935,-0.075],[0.45,0,0]),MAT.bone());
+  add('coccyx','coccyx',0,'skeleton',M([0,1,2,3].map(i=>at(blob(0.009-i*0.0016,0.005,0.005,null,14,10),[0,0.884-i*0.009,-0.111+i*0.005]))),MAT.bone());
+
+  // ---------- thorax
+  add('sternum','sternum',0,'skeleton',M(
+    at(blob(0.026,0.022,0.0075,(v,u)=>{v.x*=0.75+0.25*(u.y+1)/2;}),[0,1.395,0.088],[-0.15,0,0]),
+    at(blob(0.017,0.066,0.007,(v,u)=>{v.x*=1-0.25*Math.max(0,-u.y);}),[0,1.305,0.098],[-0.12,0,0]),
+    at(blob(0.008,0.015,0.004),[0,1.228,0.101],[0.15,0,0])), MAT.bone());
+  const RA=[0.058,0.08,0.095,0.106,0.115,0.122,0.126,0.127,0.125,0.12,0.11,0.095];
+  const RD=[0.03,0.045,0.055,0.065,0.075,0.085,0.095,0.1,0.1,0.1,0.07,0.05];
+  const cartG=[];
+  for (let i=1;i<=12;i++){
+    const vp=VP['T'+i], y=vp.M.y, zv=vp.M.z, a=RA[i-1], d=RD[i-1];
+    for (const s of [1,-1]){
+      const pts=[V(s*0.014,y,zv-0.004),V(s*0.034,y+0.002,zv-0.024),V(s*a*0.72,y-d*0.12,zv-0.032),V(s*a*0.98,y-d*0.42,(zv-0.032)*0.35)];
+      if (i<=10) pts.push(V(s*a*0.86,y-d*0.75,0.05),V(s*a*0.52,y-d,0.08));
+      else if (i===11) pts.push(V(s*a*0.88,y-d*0.75,0.03));
+      const c=crv(pts); VP['rib'+i+sd(s)] = c;
+      const hgt = i===1?0.0085:0.0072;
+      const g=tube(c,t=>{const k=Math.max(.55,Math.min(1,Math.sqrt(Math.min(t,1-t)/0.03))); return [0.0042*k,hgt*k];},{hint:Y,rad:10});
+      add(`cote${i}-${sd(s)}`, i<=7?'coteV':i<=10?'coteF':'coteFl', s, 'skeleton', g, MAT.bone(), {name:`${i===1?'1re':i+'e'} côte`});
+      if (i<=10){
+        const e=pts[pts.length-1];
+        const tg = i<=7 ? V(s*0.016,1.4-(i-1)*0.026,0.093+(i-1)*0.0015) : V(s*(0.03+0.012*(i-7)),1.225-0.008*(i-7),0.088);
+        const mid=e.clone().lerp(tg,0.5); mid.z+=0.008;
+        cartG.push(tube(crv([e,mid,tg]),cst(0.0042),{rad:8}));
+      }
+    }
+  }
+  add('cartilages','cartilages',0,'skeleton',M(cartG),MAT.cart());
+
+  // ---------- ceinture scapulaire et membres supérieurs
+  for (const s of [1,-1]){
+    const S=sd(s);
+    add('clavicule-'+S,'clavicule',s,'skeleton',tube(crv([[s*0.018,1.418,0.083],[s*0.07,1.43,0.078],[s*0.125,1.445,0.03],[s*0.168,1.452,-0.018]]),knob(0.0078,0.0055,0.0072),{rad:10}),MAT.bone());
+    const A=crv([[s*0.06,1.425,-0.105],[s*0.066,1.34,-0.115],[s*0.085,1.262,-0.11]]);
+    const B=crv([[s*0.152,1.405,-0.048],[s*0.125,1.33,-0.085],[s*0.09,1.264,-0.107]]);
+    add('scapula-'+S,'scapula',s,'skeleton',M(
+      sheet(A,B,(u,w)=>V(0,0,-0.006*Math.sin(Math.PI*w)*Math.sin(Math.PI*u)),20,12),
+      tube(A,cst(0.0032),{rad:8}), tube(B,cst(0.005),{rad:8}),
+      tube(crv([[s*0.06,1.425,-0.105],[s*0.11,1.43,-0.086],[s*0.15,1.415,-0.05]]),cst(0.0036),{rad:8}),
+      tube(crv([[s*0.064,1.385,-0.118],[s*0.12,1.42,-0.106],[s*0.165,1.449,-0.056],[s*0.172,1.455,-0.03]]),t=>0.0038+0.003*t,{rad:10}),
+      at(blob(0.014,0.0048,0.016),[s*0.172,1.456,-0.028]),
+      tube(crv([[s*0.135,1.425,-0.04],[s*0.14,1.43,-0.015],[s*0.148,1.42,0.005]]),taper(0.005,0.0035),{rad:8}),
+      at(blob(0.006,0.016,0.012),[s*0.158,1.41,-0.035])), MAT.bone());
+    const {Sh,E,W} = arm(s);
+    const d=E.clone().sub(Sh).normalize(), lat=V(s,0,0).addScaledVector(d,-d.x*s).normalize();
+    add('humerus-'+S,'humerus',s,'skeleton',M(
+      ball(Sh.clone().add(V(-s*0.006,0.006,-0.004)),0.022),
+      at(blob(0.011,0.011,0.011),Sh.clone().addScaledVector(lat,0.016).add(V(0,-0.006,0.007))),
+      tube(seg(Sh.clone().addScaledVector(d,0.012),E.clone().addScaledVector(d,-0.006)),knob(0.016,0.0102,0.014),{rad:12}),
+      at(blob(0.027,0.011,0.014),E), ball(E.clone().addScaledVector(lat,0.029),0.0065), ball(E.clone().addScaledVector(lat,-0.031),0.0085)), MAT.bone());
+    const d2=W.clone().sub(E).normalize(), l2=V(s,0,0).addScaledVector(d2,-d2.x*s).normalize();
+    add('ulna-'+S,'ulna',s,'skeleton',M(
+      tube(crv([E.clone().add(V(0,0.016,-0.017)).addScaledVector(l2,-0.008),E.clone().addScaledVector(l2,-0.01).add(V(0,-0.012,0)),E.clone().lerp(W,0.5).addScaledVector(l2,-0.013),W.clone().addScaledVector(l2,-0.016)]),knob(0.012,0.006,0.0062),{rad:10}),
+      ball(W.clone().addScaledVector(l2,-0.019).addScaledVector(d2,0.006),0.0038)), MAT.bone());
+    add('radius-'+S,'radius',s,'skeleton',M(
+      tube(crv([E.clone().addScaledVector(l2,0.013).addScaledVector(d2,0.006),E.clone().lerp(W,0.5).addScaledVector(l2,0.016),W.clone().addScaledVector(l2,0.014).addScaledVector(d2,-0.004)]),knob(0.0085,0.006,0.012),{rad:10}),
+      ball(W.clone().addScaledVector(l2,0.025),0.004)), MAT.bone());
+    // main
+    const carp=[];
+    for (let r=0;r<2;r++) for (let k=0;k<4;k++) carp.push(at(blob(0.0062,0.0058,0.0055,null,14,10), W.clone().addScaledVector(d2,0.01+r*0.013).addScaledVector(l2,0.018-k*0.012+r*0.002).add(V(0,0,0.002))));
+    add('carpe-'+S,'carpe',s,'skeleton',M(carp),MAT.bone());
+    const F=[{o:0.021,sp:0.95,fz:0.55,L:[0.042,0.031,0.024],r:0.0048},{o:0.012,sp:0.12,fz:0.02,L:[0.062,0.038,0.024,0.018],r:0.0042},{o:0.002,sp:0,fz:0.02,L:[0.064,0.042,0.027,0.019],r:0.0043},{o:-0.008,sp:-0.08,fz:0.02,L:[0.06,0.039,0.026,0.018],r:0.004},{o:-0.017,sp:-0.18,fz:0.02,L:[0.054,0.03,0.019,0.016],r:0.0036}];
+    const mc=[], ph=[];
+    for (const f of F){
+      let p = W.clone().addScaledVector(d2, f.o>0.015?0.02:0.031).addScaledVector(l2,f.o).add(V(0,0,f.o>0.015?0.008:0.003));
+      let dir = d2.clone().addScaledVector(l2,f.sp).addScaledVector(Z,f.fz).normalize();
+      f.L.forEach((len,k)=>{
+        const e=p.clone().addScaledVector(dir,len), r=f.r*(1-k*0.14);
+        (k===0?mc:ph).push(tube(seg(p,e),knob(r*1.3,r*0.8,r*(k===f.L.length-1?0.9:1.2),0.18),{rad:8,seg:8}));
+        p=e.clone().addScaledVector(dir,0.002); dir.addScaledVector(Z,0.16).normalize();
+      });
+    }
+    add('metacarpe-'+S,'metacarpe',s,'skeleton',M(mc),MAT.bone());
+    add('phalMain-'+S,'phalMain',s,'skeleton',M(ph),MAT.bone());
+  }
+
+  // ---------- bassin et membres inférieurs
+  for (const s of [1,-1]){
+    const S=sd(s);
+    const cA=crv([[s*0.112,0.995,0.058],[s*0.138,1.035,0.025],[s*0.135,1.058,-0.025],[s*0.1,1.05,-0.068],[s*0.05,1.015,-0.085]]);
+    const cB=crv([[s*0.1,0.95,0.04],[s*0.098,0.94,0.012],[s*0.093,0.94,-0.015],[s*0.075,0.955,-0.05],[s*0.045,0.975,-0.072]]);
+    const ac=V(s*0.088,0.925,0), an=V(s*0.8,-0.3,0.45).normalize();
+    add('coxal-'+S,'coxal',s,'skeleton',M(
+      sheet(cA,cB,(u,w)=>V(s*0.013*Math.sin(Math.PI*w)*Math.sin(Math.PI*u),0,0),26,12),
+      tube(cA,t=>0.0045+0.002*gauss(t,0,.1),{rad:8}), tube(cB,cst(0.0065),{rad:8}),
+      at(new THREE.TorusGeometry(0.024,0.0058,10,32),ac,new THREE.Quaternion().setFromUnitVectors(Z,an)),
+      tube(crv([[s*0.075,0.935,0.03],[s*0.05,0.915,0.055],[s*0.012,0.893,0.064]]),cst(0.0075),{rad:8}),
+      tube(crv([[s*0.012,0.878,0.06],[s*0.03,0.858,0.04],[s*0.055,0.85,0.005],[s*0.065,0.857,-0.02]]),cst(0.0065),{rad:8}),
+      tube(crv([[s*0.065,0.857,-0.02],[s*0.08,0.885,-0.03],[s*0.088,0.91,-0.022]]),taper(0.011,0.008),{rad:8}),
+      at(blob(0.006,0.015,0.008),[s*0.014,0.885,0.062])), MAT.bone());
+    // fémur
+    const H=V(s*0.088,0.925,0);
+    add('femur-'+S,'femur',s,'skeleton',M(
+      ball(H,0.023), tube(seg(H,[s*0.128,0.9,-0.002]),cst(0.0125),{rad:10}),
+      at(blob(0.014,0.02,0.017),[s*0.14,0.915,-0.012]), ball([s*0.115,0.875,-0.013],0.009),
+      tube(crv([[s*0.132,0.9,-0.002],[s*0.12,0.72,0.012],[s*0.1,0.54,-0.004]]),knob(0.017,0.0122,0.02),{rad:14}),
+      at(blob(0.018,0.02,0.027),[s*0.078,0.505,-0.008]), at(blob(0.017,0.02,0.027),[s*0.118,0.505,-0.008])), MAT.bone());
+    add('rotule-'+S,'rotule',s,'skeleton',at(blob(0.02,0.024,0.009,(v,u)=>{v.x*=1-0.25*Math.max(0,-u.y);}),[s*0.098,0.515,0.038]),MAT.bone());
+    add('tibia-'+S,'tibia',s,'skeleton',M(
+      at(blob(0.038,0.013,0.028),[s*0.097,0.478,-0.004]),
+      tube(crv([[s*0.097,0.472,-0.004],[s*0.093,0.28,0.004],[s*0.088,0.09,-0.002]]),knob(0.022,0.011,0.016),{rad:12}),
+      at(blob(0.009,0.016,0.012),[s*0.072,0.074,0]), ball([s*0.097,0.44,0.022],0.009)), MAT.bone());
+    add('fibula-'+S,'fibula',s,'skeleton',M(
+      ball([s*0.128,0.458,-0.016],0.0095),
+      tube(crv([[s*0.128,0.455,-0.016],[s*0.125,0.25,-0.014],[s*0.124,0.08,-0.01]]),cst(0.0055),{rad:8}),
+      at(blob(0.0075,0.017,0.011),[s*0.125,0.062,-0.008])), MAT.bone());
+    // pied
+    add('talus-'+S,'talus',s,'skeleton',at(blob(0.016,0.013,0.024),fp(s,0.098,0.055,0.003)),MAT.bone());
+    add('calcaneus-'+S,'calcaneus',s,'skeleton',at(blob(0.017,0.019,0.036,(v,u)=>{v.y*=1-0.25*Math.max(0,u.z);}),fp(s,0.1,0.03,-0.035),[0.25,0,0]),MAT.bone());
+    add('tarse-'+S,'tarse',s,'skeleton',M(
+      at(blob(0.012,0.011,0.008),fp(s,0.088,0.045,0.035)), at(blob(0.012,0.011,0.014),fp(s,0.118,0.03,0.04)),
+      at(blob(0.0065,0.011,0.01),fp(s,0.072,0.04,0.06)), at(blob(0.006,0.011,0.01),fp(s,0.086,0.04,0.058)), at(blob(0.006,0.01,0.01),fp(s,0.1,0.037,0.057))), MAT.bone());
+    const mt=[], tp=[];
+    for (let k=0;k<5;k++){
+      const b=fp(s,0.072+k*0.0125,0.038-k*0.003,0.072-k*0.004), h=fp(s,0.068+k*0.017,0.013,0.14-k*0.009);
+      const r = k===0?0.0062:0.0042-k*0.0002;
+      mt.push(tube(seg(b,h),knob(r*1.35,r,r*1.4,0.15),{rad:8}));
+      const lens = k===0?[0.03,0.024]:[0.024,0.014,0.011].map(x=>x*(1-0.08*(k-1)));
+      const dir = h.clone().sub(b).setY(0).normalize().add(V(0,-0.12,0)).normalize();
+      let p=h.clone().addScaledVector(dir,0.006);
+      lens.forEach((len,i)=>{ const e=p.clone().addScaledVector(dir,len); const rr=(k===0?0.0056:0.0033)*(1-i*0.15); tp.push(tube(seg(p,e),knob(rr*1.2,rr*0.85,rr,0.2),{rad:8,seg:6})); p=e.clone().addScaledVector(dir,0.002); });
+    }
+    add('metatarse-'+S,'metatarse',s,'skeleton',M(mt),MAT.bone());
+    add('phalPied-'+S,'phalPied',s,'skeleton',M(tp),MAT.bone());
+  }
+  discG.push(at(blob(0.0055,0.013,0.007),[0,0.886,0.063]));
+  add('disques','disques',0,'skeleton',M(discG),MAT.cart());
+}
+
+/* =========================================================
+   MUSCLES
+   ========================================================= */
+function buildMuscles(){
+  const mu = (id,key,s,geo,o={}) => add(id+(s?'-'+sd(s):''),key,s,'muscle',geo,o.mat||MAT.muscle(o.col),o);
+  for (const s of [1,-1]){
+    const {Sh,E,W} = arm(s);
+    mu('deltoide','deltoide',s,sheet(crv([[s*0.115,1.448,0.05],[s*0.168,1.468,0.005],[s*0.14,1.452,-0.075]]),crv([[s*0.208,1.312,0.012],[s*0.217,1.302,-0.008],[s*0.208,1.31,-0.026]]),(u,w)=>V(s*0.024,0.008,0).multiplyScalar(Math.sin(Math.PI*(w*0.85+0.08))*(0.55+0.45*Math.sin(Math.PI*u))),22,14));
+    mu('pectoral','pectoral',s,sheet(crv([[s*0.1,1.432,0.082],[s*0.04,1.42,0.097],[s*0.022,1.36,0.106],[s*0.022,1.28,0.11],[s*0.065,1.245,0.102]]),crv([[s*0.188,1.362,0.016],[s*0.193,1.35,0.013],[s*0.194,1.34,0.011],[s*0.19,1.334,0.009],[s*0.185,1.33,0.006]]),(u,w)=>V(0,0,0.017*Math.sin(Math.PI*w)*(0.6+0.4*Math.sin(Math.PI*u))),24,14));
+    mu('biceps','biceps',s,tube(crv([[s*0.168,1.385,0.012],[s*0.204,1.255,0.024],[s*0.236,1.118,0.03]]),fus(0.019,0.017,0.2,0.7),{rad:14}));
+    mu('triceps','triceps',s,tube(crv([[s*0.158,1.375,-0.042],[s*0.208,1.245,-0.052],[s*0.236,1.135,-0.04]]),fus(0.024,0.02,0.22,0.6),{rad:14}));
+    mu('flechisseurs','flechisseurs',s,tube(crv([E.clone().add(V(-s*0.012,0.005,0.012)),E.clone().lerp(W,0.4).add(V(-s*0.006,0,0.018)),W.clone().add(V(-s*0.006,0.01,0.012))]),t=>{const k=Math.max(0.3,Math.pow(Math.sin(Math.PI*Math.min(1,t*1.4)),0.7)); return [0.02*k,0.013*k];},{rad:14}));
+    mu('brachioradial','brachioradial',s,tube(crv([[s*0.228,1.21,-0.005],[s*0.257,1.06,0.012],[s*0.3,0.89,0.012]]),t=>{const k=Math.max(0.25,Math.pow(Math.sin(Math.PI*Math.min(1,t*1.3)),0.7)); return 0.013*k;},{rad:12}));
+    mu('extenseurs','extenseurs',s,tube(crv([E.clone().add(V(s*0.012,0,-0.012)),E.clone().lerp(W,0.4).add(V(s*0.004,0,-0.016)),W.clone().add(V(s*0.004,0.01,-0.012))]),t=>{const k=Math.max(0.3,Math.pow(Math.sin(Math.PI*Math.min(1,t*1.4)),0.7)); return [0.018*k,0.012*k];},{rad:14}));
+    mu('scm','scm',s,tube(crv([[s*0.056,1.598,-0.025],[s*0.045,1.52,0.02],[s*0.024,1.432,0.074]]),fus(0.0095,0.0075,0.4,0.5),{rad:10}));
+    mu('trapeze','trapeze',s,sheet(crv([[0,1.6,-0.07],[0,1.48,-0.092],[0,1.38,-0.128],[0,1.22,-0.118]]),crv([[s*0.045,1.575,-0.055],[s*0.165,1.462,-0.035],[s*0.13,1.432,-0.092],[s*0.07,1.38,-0.122]]),(u,w)=>V(0,0,-0.008*Math.sin(Math.PI*w)),22,12));
+    mu('dorsal','dorsal',s,sheet(crv([[0,1.32,-0.128],[0,1.2,-0.118],[0,1.08,-0.074],[s*0.1,1.04,-0.072]]),crv([[s*0.1,1.3,-0.12],[s*0.15,1.27,-0.094],[s*0.172,1.3,-0.062],[s*0.18,1.35,-0.03]]),(u,w)=>V(s*0.008,0,-0.01).multiplyScalar(Math.sin(Math.PI*w)),22,12));
+    mu('droitAbdo','droitAbdo',s,tube(crv([[s*0.016,0.895,0.072],[s*0.038,1.0,0.104],[s*0.048,1.12,0.11],[s*0.058,1.25,0.104]]),t=>{const k=Math.max(0.35,Math.pow(Math.sin(Math.PI*t),0.35)); const seg4=1-0.12*Math.pow(Math.abs(Math.sin(t*Math.PI*4.5)),12); return [0.027*k*(0.7+0.3*t),0.0075*k*seg4];},{rad:14,hint:Z}));
+    mu('oblique','oblique',s,sheet(crv([[s*0.125,1.27,0.05],[s*0.142,1.17,0.02],[s*0.14,1.06,-0.01]]),crv([[s*0.07,1.2,0.102],[s*0.078,1.1,0.108],[s*0.07,0.96,0.09]]),(u,w)=>V(s*0.007,0,0.006).multiplyScalar(Math.sin(Math.PI*w)),16,12));
+    mu('grandFessier','grandFessier',s,at(blob(0.062,0.08,0.042,(v,u)=>{v.z-=0.008*Math.max(0,-u.z);}),[s*0.088,0.915,-0.088],[0,0,s*0.35]));
+    mu('moyenFessier','moyenFessier',s,at(blob(0.045,0.05,0.03),[s*0.12,0.99,-0.045],[0.3,0,s*0.2]),{col:'#b33631'});
+    mu('droitFemoral','droitFemoral',s,tube(crv([[s*0.113,0.975,0.05],[s*0.106,0.75,0.066],[s*0.099,0.545,0.045]]),fus(0.026,0.024,0.25,0.6),{rad:14}));
+    mu('vasteLat','vasteLat',s,tube(crv([[s*0.142,0.88,0.002],[s*0.148,0.7,0.02],[s*0.118,0.548,0.03]]),fus(0.03,0.028,0.25,0.55),{rad:14}));
+    mu('vasteMed','vasteMed',s,tube(crv([[s*0.085,0.79,0.028],[s*0.07,0.62,0.035],[s*0.085,0.54,0.034]]),t=>0.028*Math.max(0.25,Math.pow(Math.sin(Math.PI*t),0.9))*(0.55+0.45*t),{rad:14}));
+    mu('sartorius','sartorius',s,tube(crv([[s*0.114,0.995,0.062],[s*0.098,0.82,0.07],[s*0.062,0.64,0.028],[s*0.064,0.47,-0.012]]),fus(0.0085,0.006,0.5,0.4),{rad:10}));
+    mu('adducteurs','adducteurs',s,tube(crv([[s*0.022,0.885,0.038],[s*0.05,0.75,0.002],[s*0.074,0.58,-0.018]]),fus(0.03,0.032,0.2,0.6),{rad:14}));
+    mu('bicepsFem','bicepsFem',s,tube(crv([[s*0.066,0.86,-0.06],[s*0.125,0.7,-0.058],[s*0.13,0.47,-0.028]]),fus(0.024,0.024,0.18,0.6),{rad:14}));
+    mu('semiTend','semiTend',s,tube(crv([[s*0.058,0.86,-0.062],[s*0.074,0.7,-0.062],[s*0.07,0.46,-0.02]]),fus(0.021,0.021,0.15,0.7),{rad:14}));
+    const gm=tube(crv([[s*0.075,0.5,-0.035],[s*0.074,0.38,-0.066],[s*0.092,0.22,-0.05]]),fus(0.026,0.024,0.2,0.6),{rad:14});
+    const gl=tube(crv([[s*0.116,0.5,-0.035],[s*0.117,0.39,-0.06],[s*0.096,0.24,-0.05]]),fus(0.022,0.022,0.2,0.6),{rad:14});
+    mu('gastro','gastro',s,M(gm,gl));
+    mu('soleaire','soleaire',s,tube(crv([[s*0.096,0.44,-0.026],[s*0.095,0.25,-0.044],[s*0.096,0.13,-0.042]]),fus(0.026,0.018,0.25,0.6),{rad:14}),{col:'#a8322d'});
+    add('achille-'+sd(s),'achille',s,'muscle',tube(crv([[s*0.095,0.22,-0.048],[s*0.097,0.08,-0.058],[s*0.1,0.032,-0.07]]),taper(0.0065,0.005),{rad:10}),MAT.tendon());
+    mu('tibialAnt','tibialAnt',s,tube(crv([[s*0.112,0.452,0.018],[s*0.108,0.26,0.026],[s*0.088,0.075,0.032],[s*0.078,0.036,0.064]]),t=>t<0.65?0.016*Math.max(0.3,Math.pow(Math.sin(Math.PI*t/0.65),0.6)):0.0045,{rad:12}));
+    mu('masseter','masseter',s,at(blob(0.009,0.026,0.017),[s*0.054,1.565,0.028],[0.25,0,0]));
+    mu('temporal','temporal',s,at(blob(0.012,0.04,0.052,(v,u)=>{v.x*=0.6+0.4*Math.max(0,-u.y);}),[s*0.069,1.665,0.0],[0,0,-s*0.12]),{col:'#ad3a35'});
+  }
+}
+
+/* =========================================================
+   CŒUR & VAISSEAUX
+   ========================================================= */
+const heartGroup = new THREE.Group();
+function buildCardio(){
+  const Hc=V(0.015,1.272,0.035), apex=V(0.55,-0.6,0.45).normalize();
+  heartGroup.position.copy(Hc); heartGroup.quaternion.setFromUnitVectors(V(0,-1,0),apex); root.add(heartGroup);
+  const hr=[0.044,0.058,0.041], hf=u=>0.52+0.48*Math.sqrt((u.y+1)/2);
+  const hgeo = blob(hr[0],hr[1],hr[2],(v,u)=>{ const f=hf(u); v.x*=f; v.z*=f; v.addScaledVector(u,-0.0025*gauss(u.x-0.18*u.y,0,0.08)*Math.max(0,u.z)); },64,48);
+  const ra = at(blob(0.024,0.022,0.024),[-0.03,0.042,0.004]), la = at(blob(0.022,0.02,0.022),[0.014,0.05,-0.024]), au = at(blob(0.012,0.01,0.016),[0.03,0.05,0.018],[0,0.4,0]);
+  add('coeur','coeur',0,'artery',M(hgeo,ra,la,au),MAT.organ('#b8323a',{sheen:.5,sheenColor:C('#ff8080'),clearcoat:1}),{parent:heartGroup});
+  const surf = (x,y,z) => { const u=V(x,y,z).normalize(), f=hf(u); return V(u.x*hr[0]*f,u.y*hr[1],u.z*hr[2]*f).multiplyScalar(1.035); };
+  const lad=[], cx=[], rca=[];
+  for (let i=0;i<=10;i++){ const t=i/10; lad.push(surf(lerp(0.2,0.25,t),lerp(0.85,-0.88,t),lerp(0.55,0.4,t)+0.4*Math.sin(Math.PI*t))); }
+  for (let i=0;i<=10;i++){ const a=lerp(1.2,-1.7,i/10); cx.push(surf(Math.cos(a)*0.8,0.6-0.25*i/10,Math.sin(a)*0.8)); }
+  for (let i=0;i<=10;i++){ const a=lerp(1.9,4.6,i/10); rca.push(surf(Math.cos(a)*0.8,0.55-0.4*i/10,Math.sin(a)*0.8)); }
+  add('coronaires','coronaires',0,'artery',M([lad,cx,rca].map(p=>tube(crv(p),taper(0.0024,0.0012),{rad:8}))),MAT.artery('#e0303a'),{parent:heartGroup});
+
+  // artères
+  vessel('aorte','aorte',0,'artery',[[0.0,1.31,0.038],[0.004,1.375,0.032],[0.012,1.405,0.012],[0.028,1.398,-0.028],[0.028,1.34,-0.05],[0.022,1.22,-0.042],[0.012,1.12,-0.01],[0.008,1.05,0.016],[0,1.0,0.02]],0.012,0.0085);
+  vessel('troncBC','troncBC',0,'artery',[[0.006,1.404,0.022],[-0.004,1.42,0.022],[-0.012,1.432,0.02]],0.0062,0.0055);
+  for (const s of [1,-1]){
+    const S=sd(s), {Sh,E,W}=arm(s);
+    vessel('carotide-'+S,'carotide',s,'artery', s>0?[[0.014,1.408,0.016],[0.022,1.47,0.012],[0.027,1.52,0.008],[0.03,1.56,-0.002],[0.026,1.61,-0.008]]:[[-0.012,1.432,0.02],[-0.022,1.48,0.012],[-0.027,1.52,0.008],[-0.03,1.56,-0.002],[-0.026,1.61,-0.008]],0.0045,0.0032);
+    const sub = s>0?[[0.026,1.402,-0.004],[0.045,1.438,0.012],[0.1,1.432,0.012],[0.16,1.392,0.002]]:[[-0.012,1.432,0.02],[-0.05,1.442,0.02],[-0.1,1.432,0.012],[-0.16,1.392,0.002]];
+    vessel('subclaviere-'+S,'subclaviere',s,'artery',sub,0.0048,0.0042);
+    vessel('brachiale-'+S,'brachiale',s,'artery',[[s*0.16,1.392,0.002],[s*0.2,1.26,0.004],[s*0.232,1.13,0.016]],0.0038,0.0034);
+    vessel('radiale-'+S,'radiale',s,'artery',[[s*0.232,1.13,0.016],[s*0.258,1.0,0.022],[s*0.29,0.88,0.026],[s*0.296,0.84,0.03],[s*0.28,0.81,0.034]],0.0026,0.002);
+    vessel('ulnaire-'+S,'ulnaire',s,'artery',[[s*0.232,1.13,0.016],[s*0.244,1.0,0.016],[s*0.268,0.88,0.022],[s*0.272,0.83,0.028],[s*0.288,0.81,0.034]],0.0028,0.002);
+    vessel('renaleA-'+S,'renaleA',s,'artery',[[0.009,1.09,0.012],[s*0.03,1.088,-0.012],[s*0.05,1.085,-0.032]],0.0035,0.003);
+    const ili = [[0,1.0,0.02],[s*0.035,0.965,0.022],[s*0.062,0.94,0.036],[s*0.08,0.905,0.052]];
+    vessel('iliaqueA-'+S,'iliaqueA',s,'artery',ili,0.0068,0.0055);
+    vessel('iliaqueA-'+S,'iliaqueA',s,'artery',[[s*0.035,0.965,0.022],[s*0.045,0.94,-0.01],[s*0.05,0.925,-0.035]],0.0042,0.003);
+    vessel('femoraleA-'+S,'femoraleA',s,'artery',[[s*0.08,0.905,0.052],[s*0.084,0.82,0.05],[s*0.078,0.7,0.035],[s*0.072,0.6,0.002],[s*0.088,0.53,-0.028]],0.0052,0.0045);
+    vessel('poplitee-'+S,'poplitee',s,'artery',[[s*0.088,0.53,-0.028],[s*0.096,0.49,-0.033],[s*0.098,0.45,-0.026]],0.0045,0.0042);
+    vessel('tibialeA-'+S,'tibialeA',s,'artery',[[s*0.098,0.45,-0.026],[s*0.11,0.43,0.0],[s*0.106,0.25,0.012],[s*0.094,0.08,0.026],[s*0.1,0.04,0.08],[s*0.105,0.025,0.13]],0.0028,0.002);
+    vessel('tibialeP-'+S,'tibialeP',s,'artery',[[s*0.098,0.45,-0.026],[s*0.088,0.4,-0.032],[s*0.08,0.2,-0.035],[s*0.068,0.07,-0.018],[s*0.085,0.012,0.05],[s*0.1,0.01,0.12]],0.0032,0.002);
+  }
+  vessel('coeliaque','coeliaque',0,'artery',[[0.01,1.13,0.006],[0.012,1.14,0.035],[-0.02,1.15,0.045],[-0.05,1.15,0.04]],0.0038,0.003);
+  vessel('coeliaque','coeliaque',0,'artery',[[0.012,1.14,0.035],[0.05,1.15,0.02],[0.09,1.155,-0.015]],0.0032,0.0028);
+  vessel('mesenterique','mesenterique',0,'artery',[[0.008,1.108,0.01],[0.002,1.07,0.055],[-0.01,1.0,0.07],[-0.035,0.95,0.06]],0.0042,0.003);
+  vessel('pulmA','pulmA',0,'artery',[[0.022,1.302,0.06],[0.024,1.348,0.048],[0.02,1.37,0.02],[-0.02,1.36,0.0],[-0.06,1.345,-0.004]],0.0085,0.006,{mat:MAT.vein('#3a63d8'),ft:'pa'});
+  vessel('pulmA','pulmA',0,'artery',[[0.024,1.348,0.048],[0.045,1.36,0.01],[0.072,1.345,-0.006]],0.0072,0.006,{mat:MAT.vein('#3a63d8'),ft:'pa'});
+
+  // veines
+  vessel('vcs','vcs',0,'vein',[[-0.026,1.29,0.022],[-0.024,1.35,0.022],[-0.02,1.402,0.022]],0.0085,0.008);
+  vessel('vci','vci',0,'vein',[[-0.026,1.236,0.012],[-0.024,1.17,0.0],[-0.02,1.1,0.012],[-0.016,1.04,0.02],[-0.004,0.995,0.016]],0.0105,0.009);
+  vessel('pulmV','pulmV',0,'vein',[[0.012,1.31,0.004],[0.045,1.32,-0.006],[0.07,1.33,-0.012]],0.0055,0.0045,{mat:MAT.artery('#d22a33'),ft:'pv'});
+  vessel('pulmV','pulmV',0,'vein',[[0.012,1.3,0.004],[0.045,1.29,-0.008],[0.068,1.28,-0.014]],0.0055,0.0045,{mat:MAT.artery('#d22a33'),ft:'pv'});
+  vessel('pulmV','pulmV',0,'vein',[[0.0,1.31,0.002],[-0.035,1.32,-0.006],[-0.062,1.325,-0.012]],0.0055,0.0045,{mat:MAT.artery('#d22a33'),ft:'pv'});
+  vessel('pulmV','pulmV',0,'vein',[[0.0,1.298,0.002],[-0.035,1.288,-0.008],[-0.06,1.28,-0.014]],0.0055,0.0045,{mat:MAT.artery('#d22a33'),ft:'pv'});
+  vessel('porte','porte',0,'vein',[[0.004,1.075,0.045],[-0.02,1.11,0.048],[-0.045,1.14,0.045]],0.0058,0.0055);
+  vessel('porte','porte',0,'vein',[[0.09,1.145,-0.01],[0.05,1.12,0.02],[0.004,1.075,0.045]],0.0035,0.0045);
+  for (const s of [1,-1]){
+    const S=sd(s), {Sh,E,W}=arm(s);
+    vessel('brachioV-'+S,'brachioV',s,'vein', s>0?[[-0.02,1.402,0.022],[0.0,1.418,0.042],[0.036,1.432,0.03]]:[[-0.02,1.402,0.022],[-0.03,1.42,0.026],[-0.036,1.432,0.026]],0.0072,0.0065);
+    vessel('jugulaire-'+S,'jugulaire',s,'vein',[[s*0.036,1.432,0.028],[s*0.038,1.5,0.006],[s*0.04,1.56,-0.012],[s*0.038,1.6,-0.022]],0.0058,0.0042);
+    vessel('subclavV-'+S,'subclavV',s,'vein',[[s*0.036,1.432,0.028],[s*0.1,1.428,0.022],[s*0.16,1.385,0.012],[s*0.198,1.26,0.012],[s*0.228,1.13,0.024]],0.0055,0.0035);
+    vessel('cephalique-'+S,'cephalique',s,'vein',[[s*0.13,1.425,0.05],[s*0.2,1.31,0.035],[s*0.245,1.13,0.03],[s*0.285,1.0,0.026],[s*0.306,0.88,0.016]],0.0032,0.0024);
+    vessel('basilique-'+S,'basilique',s,'vein',[[s*0.195,1.28,-0.004],[s*0.216,1.16,0.02],[s*0.25,1.0,0.026],[s*0.27,0.88,0.022]],0.0032,0.0024);
+    vessel('renaleV-'+S,'renaleV',s,'vein',[[-0.018,1.082,0.016],[s*0.025,1.08,-0.006],[s*0.048,1.078,-0.026]],0.0042,0.0036);
+    vessel('iliaqueV-'+S,'iliaqueV',s,'vein',[[-0.004,0.995,0.016],[s*0.04,0.958,0.014],[s*0.065,0.93,0.032],[s*0.073,0.9,0.046]],0.0075,0.0062);
+    vessel('femoraleV-'+S,'femoraleV',s,'vein',[[s*0.073,0.9,0.046],[s*0.075,0.8,0.042],[s*0.071,0.7,0.028],[s*0.068,0.6,-0.006],[s*0.092,0.5,-0.036],[s*0.091,0.3,-0.04],[s*0.082,0.1,-0.028]],0.0062,0.0035);
+    vessel('saphene-'+S,'saphene',s,'vein',[[s*0.073,0.88,0.058],[s*0.056,0.7,0.034],[s*0.058,0.5,-0.022],[s*0.062,0.3,0.002],[s*0.066,0.085,0.024],[s*0.075,0.045,0.07]],0.0034,0.0022);
+  }
+}
+
+/* =========================================================
+   SYSTÈME NERVEUX
+   ========================================================= */
+let brainPts = [];
+function buildNerves(){
+  const brainMat = () => MAT.organ('#e4a7a0',{roughness:.5,clearcoat:.55,sheen:.6,sheenColor:C('#ffd0d0'),bumpScale:.2});
+  for (const s of [1,-1]){
+    const S=sd(s), c=V(s*0.035,1.672,-0.008);
+    const g = blob(0.034,0.056,0.085,(v,u)=>{
+      if (u.x*s<0) v.x*=0.22;
+      if (u.y<-0.25) v.y = -0.014 + (v.y+0.014)*0.7;
+      v.y += -0.012*gauss(u.z,0.25,0.25)*Math.max(0,-u.y)*(u.x*s>0?1:0);
+      const n = Math.sin(14*u.x+3*Math.sin(9*u.z)) * Math.sin(15*u.y+2.6*Math.sin(11*u.x)) * Math.cos(12*u.z+3*Math.sin(8*u.y));
+      const ln = Math.hypot(v.x,v.y,v.z)||1, k = 1 - 0.075*Math.pow(Math.abs(n),0.6);
+      if (Math.abs(u.x*s)>0.1 || u.x*s>0) v.multiplyScalar(k);
+      else v.multiplyScalar(1-0.02*Math.abs(n));
+    },150,110);
+    at(g,c);
+    add('hemisphere-'+S,'hemisphere',s,'nerve',g,brainMat());
+    const p=g.attributes.position; for (let i=0;i<70;i++){ const j=Math.floor(rnd()*p.count); brainPts.push(V(p.getX(j),p.getY(j),p.getZ(j))); }
+  }
+  add('cervelet','cervelet',0,'nerve',at(blob(0.047,0.024,0.031,(v,u)=>{ v.multiplyScalar(1-0.05*Math.pow(Math.abs(Math.sin(u.y*28+u.z*4)),3)); v.y-=0.006*u.z*u.z; if(Math.abs(u.x)<0.12) v.multiplyScalar(0.9); },90,70),[0,1.606,-0.064]),brainMat());
+  add('tronc','tronc',0,'nerve',tube(crv([[0,1.648,-0.012],[0,1.615,-0.024],[0,1.585,-0.032],[0,1.562,-0.034]]),t=>lerp(0.012,0.0075,t)*(1+0.18*gauss(t,0.3,0.12)),{rad:14}),brainMat());
+  // moelle épinière
+  const cordPts=[V(0,1.565,-0.034)]; for (let i=VL.length-1;i>=0;i--){ const v=VL[i]; cordPts.push(VP[v.n].C.clone()); if (v.n==='L1') break; }
+  const cord = crv(cordPts);
+  add('moelle','moelle',0,'nerve',tube(cord,t=>0.0046*(1+0.28*gauss(t,0.1,0.06)+0.22*gauss(t,0.86,0.05))*(t>0.93?0.35+0.65*(1-t)/0.07:1),{rad:12}),MAT.nerve());
+  flow(cord,'n','moelle',0.004);
+  const cq=[]; const l1=VP.L1.C, l3=VP.L3.C, l5=VP.L5.C;
+  for (let k=0;k<8;k++){ const o=(k-3.5)*0.0018; cq.push(tube(crv([l1.clone().add(V(o*0.6,0,0)),l3.clone().add(V(o,0,0)),l5.clone().add(V(o*1.2,0,0)),V(o*2.2,0.935,-0.086),V(o*3,0.905,-0.095)]),cst(0.0011),{rad:5}));}
+  add('queue','queue',0,'nerve',M(cq),MAT.nerve());
+  // nerfs spinaux & intercostaux
+  for (const s of [1,-1]){
+    const S=sd(s), sp=[], ic=[];
+    for (const v of VL){ if (v.n==='C1') continue; const vp=VP[v.n]; const base=vp.C.clone().setY(vp.bot.y-0.002);
+      sp.push(tube(crv([base.clone().addScaledVector(X,s*vp.rc*0.8),base.clone().add(V(s*0.022,-0.004,0.003)),base.clone().add(V(s*0.036,-0.012,0.008))]),taper(0.0022,0.0016),{rad:6,seg:8})); }
+    for (let k=0;k<4;k++) sp.push(tube(crv([[s*0.012,0.965-k*0.018,-0.08],[s*0.03,0.955-k*0.018,-0.072],[s*0.05,0.935-k*0.01,-0.068]]),cst(0.0018),{rad:6,seg:8}));
+    add('spinaux-'+S,'spinaux',s,'nerve',M(sp),MAT.nerve());
+    for (let i=1;i<=11;i++){ const rc=VP['rib'+i+S]; const pts=[]; for (let k=0;k<=12;k++){ const p=rc.getPointAt(k/12); pts.push(V(p.x*0.965,p.y-0.0085,p.z*0.965)); }
+      const c=crv(pts); ic.push(tube(c,cst(0.0014),{rad:5})); flow(c,'n','intercostaux-'+S,0.0014); }
+    add('intercostaux-'+S,'intercostaux',s,'nerve',M(ic),MAT.nerve());
+    // plexus brachial
+    const ax=V(s*0.165,1.385,-0.002), pl=[];
+    for (let k=0;k<5;k++){ const st=V(s*0.03,1.5-k*0.02,-0.04+k*0.002); pl.push(tube(crv([st,V(s*0.07,1.46-k*0.012,-0.02),V(s*0.12,1.42-k*0.004,-0.008),ax.clone().add(V(0,0.006-k*0.003,0))]),cst(0.0026),{rad:6})); }
+    add('plexusB-'+S,'plexusB',s,'nerve',M(pl),MAT.nerve());
+    nerve('median-'+S,'median',s,[[s*0.165,1.383,0.002],[s*0.204,1.25,0.008],[s*0.234,1.12,0.022],[s*0.266,1.0,0.026],[s*0.29,0.87,0.026],[s*0.302,0.82,0.034],[s*0.312,0.78,0.036]],0.0032,0.002);
+    nerve('ulnaireN-'+S,'ulnaireN',s,[[s*0.165,1.383,-0.006],[s*0.198,1.25,-0.014],[s*0.212,1.135,-0.034],[s*0.244,1.0,0.008],[s*0.266,0.87,0.02],[s*0.272,0.8,0.026]],0.003,0.002);
+    nerve('radial-'+S,'radial',s,[[s*0.165,1.383,-0.01],[s*0.188,1.32,-0.042],[s*0.225,1.24,-0.034],[s*0.252,1.14,0.004],[s*0.276,1.0,0.002],[s*0.3,0.88,0.006],[s*0.312,0.83,0.012]],0.0032,0.0018);
+    nerve('musculocutane-'+S,'musculocutane',s,[[s*0.165,1.385,0.006],[s*0.194,1.28,0.022],[s*0.234,1.13,0.024],[s*0.27,0.98,0.018]],0.0024,0.0016);
+    nerve('axillaire-'+S,'axillaire',s,[[s*0.165,1.385,-0.012],[s*0.18,1.37,-0.042],[s*0.2,1.358,-0.032],[s*0.21,1.35,-0.008]],0.0024,0.0018);
+    nerve('femoral-'+S,'femoral',s,[[s*0.03,1.08,-0.03],[s*0.058,1.0,-0.004],[s*0.09,0.905,0.052],[s*0.1,0.85,0.066],[s*0.096,0.75,0.056]],0.0036,0.0022);
+    const sci = nerve('sciatique-'+S,'sciatique',s,[[s*0.03,0.95,-0.072],[s*0.066,0.928,-0.074],[s*0.086,0.85,-0.074],[s*0.102,0.7,-0.058],[s*0.1,0.56,-0.046]],0.0062,0.0055);
+    nerve('tibialN-'+S,'tibialN',s,[[s*0.1,0.56,-0.046],[s*0.095,0.48,-0.042],[s*0.09,0.3,-0.037],[s*0.073,0.08,-0.024],[s*0.088,0.018,0.04],[s*0.1,0.012,0.11]],0.004,0.0022);
+    nerve('fibulaire-'+S,'fibulaire',s,[[s*0.1,0.56,-0.046],[s*0.126,0.48,-0.032],[s*0.136,0.44,-0.004],[s*0.116,0.3,0.016],[s*0.1,0.08,0.03],[s*0.1,0.042,0.09]],0.0032,0.002);
+    nerve('vague-'+S,'vague',s,[[s*0.012,1.6,-0.026],[s*0.03,1.52,0.0],[s*0.026,1.42,0.004],[s*0.014,1.3,-0.034],[s*0.012,1.16,0.002],[s*0.035+0.01,1.14,0.04]],0.002,0.0016);
+    nerve('phrenique-'+S,'phrenique',s,[[s*0.03,1.5,-0.022],[s*0.04,1.42,0.03],[s*(s>0?0.07:0.05),1.3,0.04],[s*0.07,1.18,0.02]],0.0018,0.0014);
+    nerve('optique-'+S,'optique',s,[[s*0.031,1.627,0.052],[s*0.018,1.632,0.036],[s*0.004,1.636,0.026]],0.0026,0.0024);
+    // œil
+    const eg = blob(0.0118,0.0118,0.0118,null,40,30);
+    const cols=[], p=eg.attributes.position, col=new THREE.Color();
+    for (let i=0;i<p.count;i++){ const z=p.getZ(i)/0.0118; if (z>0.965) col.set('#050505'); else if (z>0.86) col.set(s>0?'#3f7a64':'#3f7a64').lerp(C('#1c3a30'),(z-0.86)/0.1); else col.set('#f1ece6'); cols.push(col.r,col.g,col.b); }
+    eg.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));
+    add('oeil-'+S,'oeil',s,'nerve',at(eg,[s*0.031,1.627,0.066]),new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.25,clearcoat:.6,clearcoatRoughness:.3}));
+  }
+}
+
+/* =========================================================
+   RESPIRATOIRE
+   ========================================================= */
+const lungs = [];
+let diaphragm;
+function buildResp(){
+  add('larynx','larynx',0,'resp',at(blob(0.018,0.022,0.016,(v,u)=>{ if(u.z>0.2) v.z+=0.004*Math.max(0,1-Math.abs(u.x)*3)*Math.max(0,u.y); }),[0,1.492,0.034]),MAT.organ('#e8d6c8'));
+  const tr = crv([[0,1.472,0.03],[0,1.41,0.02],[0,1.342,0.0]]);
+  const rings=[]; for (let k=1;k<16;k++){ const t=k/16, p=tr.getPointAt(t), T=tr.getTangentAt(t); rings.push(at(new THREE.TorusGeometry(0.0095,0.0018,6,20),p,new THREE.Quaternion().setFromUnitVectors(Z,T))); }
+  add('trachee','trachee',0,'resp',M(tube(tr,cst(0.0085),{rad:16}),rings),MAT.organ('#f0d9d2'));
+  const LC = {L:V(0.08,1.305,0.0), R:V(-0.077,1.305,0.0)}, LR=[0.06,0.1,0.075];
+  for (const s of [1,-1]){
+    const S=sd(s), c=LC[S], geos=[];
+    const inside = p => { const q=p.clone().sub(c); return (q.x/(LR[0]*0.82))**2+(q.y/(LR[1]*0.85))**2+(q.z/(LR[2]*0.8))**2 < 1; };
+    const br = (p,dir,len,r,dep) => {
+      let e=p.clone().addScaledVector(dir,len); let tries=0; while (dep>0 && !inside(e) && tries<4){ len*=0.6; e=p.clone().addScaledVector(dir,len); tries++; }
+      geos.push(tube(seg(p,e),taper(r,r*0.85),{seg:2,rad:6}));
+      if (dep>=6) return;
+      const toC = c.clone().sub(e).normalize();
+      for (const sg of [1,-1]){ const ax=new THREE.Vector3(rnd()-.5,rnd()-.5,rnd()-.5).cross(dir).normalize();
+        const nd=dir.clone().applyAxisAngle(ax,sg*(0.42+rnd()*0.3)).addScaledVector(toC,0.25).normalize(); br(e,nd,len*0.78,r*0.72,dep+1); }
+    };
+    const start=V(0,1.342,0.0), mainEnd=V(s*(s>0?0.042:0.032),1.318,-0.006);
+    geos.push(tube(seg(start,mainEnd),cst(0.0062),{seg:2,rad:8}));
+    br(mainEnd, V(s*0.35,-0.8,0).normalize(), 0.035, 0.0048, 1);
+    br(mainEnd, V(s*0.5,0.7,0.1).normalize(), 0.03, 0.004, 2);
+    br(mainEnd, V(s*0.4,-0.3,0.7).normalize(), 0.028, 0.004, 2);
+    br(mainEnd, V(s*0.3,-0.4,-0.7).normalize(), 0.028, 0.004, 2);
+    add('bronches-'+S,'bronches',s,'resp',M(geos),MAT.organ('#f3d7cf'));
+    const lg = blob(LR[0],LR[1],LR[2],(v,u)=>{
+      const med = u.x*s<0; if (med) v.x*=0.55;
+      if (s>0 && med){ const k=sstep(0.6,0.0,u.y)*sstep(-0.3,0.4,u.z); v.x*=1-0.55*k; }
+      if (u.y>0) { const k=1-0.42*u.y*u.y; v.x*=k; v.z*=k; }
+      if (u.y<-0.4) v.y += 0.03*(1-Math.abs(u.x))*sstep(-0.4,-1,u.y);
+      v.z *= 1 - 0.15*Math.max(0,u.z)*(u.y<0?1:0.4);
+    },64,48);
+    const lm = add('poumon-'+S,'poumon',s,'resp',lg,MAT.organ('#f19aa8',{roughness:.6,clearcoat:.4,sheen:.8,sheenColor:C('#ffd6de'),bumpScale:.2}),{op:.55});
+    lm.position.copy(c); lungs.push(lm);
+  }
+  const dg = new THREE.SphereGeometry(1,48,20,0,Math.PI*2,0,Math.PI*0.5); dg.deleteAttribute('normal');
+  const dp = dg.attributes.position;
+  for (let i=0;i<dp.count;i++){ const x=dp.getX(i), y=dp.getY(i), z=dp.getZ(i); dp.setXYZ(i, x*0.132, y*0.058*(1+0.25*Math.exp(-((Math.abs(x)-0.5)*(Math.abs(x)-0.5))/0.08))*(1-0.35*Math.exp(-x*x/0.03)) + (x<0?0.004:0), z*0.1); }
+  dg.computeVertexNormals();
+  diaphragm = add('diaphragme','diaphragme',0,'resp',dg,MAT.muscle('#b9433d'),{op:.9});
+  diaphragm.position.set(0,1.142,-0.005);
+}
+
+/* =========================================================
+   DIGESTIF, URINAIRE, ENDOCRINIEN
+   ========================================================= */
+function buildDigest(){
+  const teeth=[];
+  for (const [yy,up] of [[1.567,1],[1.551,-1]]) for (let i=0;i<16;i++){
+    const th=-1.35+i*(2.7/15), x=Math.sin(th)*0.027, z=0.047+Math.cos(th)*0.03, mol=Math.abs(th)>0.75;
+    teeth.push(at(blob(mol?0.0042:0.0031,0.0055,mol?0.0045:0.0022,(v,u)=>{ if(u.y*up<0) {v.x*=0.7; v.z*=0.7;} },12,10),[x,yy,z],[0,th,0]));
+  }
+  add('dents','dents',0,'digest',M(teeth),new THREE.MeshPhysicalMaterial({color:'#fbf7ee',roughness:.35,clearcoat:.4}));
+  add('langue','langue',0,'digest',at(blob(0.02,0.008,0.03,(v,u)=>{ if(u.y>0) v.y*=0.6; }),[0,1.556,0.042],[-0.1,0,0]),MAT.organ('#e07a80'));
+  const oes = crv([[0,1.47,0.006],[0,1.4,-0.012],[0.004,1.3,-0.036],[0.014,1.2,-0.022],[0.03,1.165,0.004],[0.048,1.155,0.02]]);
+  add('oesophage','oesophage',0,'digest',tube(oes,cst(0.0075),{rad:12}),MAT.organ('#e2a090'));
+  add('estomac','estomac',0,'digest',tube(crv([[0.062,1.192,0.0],[0.088,1.15,0.02],[0.082,1.1,0.05],[0.056,1.066,0.066],[0.02,1.07,0.06],[-0.012,1.09,0.05]]),t=>{const c=Math.min(1,Math.sqrt(t/0.08)); return Math.max(0.006,(t<0.3?lerp(0.03,0.037,t/0.3):lerp(0.037,0.011,(t-0.3)/0.7))*Math.max(0.3,c));},{rad:22}),MAT.organ('#e8957d'));
+  add('duodenum','duodenum',0,'digest',tube(crv([[-0.012,1.09,0.05],[-0.04,1.1,0.032],[-0.047,1.055,0.022],[-0.022,1.032,0.03],[0.02,1.04,0.026]]),cst(0.0095),{rad:12}),MAT.organ('#e8a088'));
+  add('pancreas','pancreas',0,'digest',tube(crv([[-0.032,1.065,0.024],[0.0,1.075,0.016],[0.04,1.085,0.006],[0.085,1.105,-0.012]]),t=>[lerp(0.013,0.008,t),lerp(0.009,0.006,t)],{rad:14,hint:Z}),MAT.organ('#ecc27c',{bumpScale:1.5}));
+  add('foie','foie',0,'digest',at(blob(0.105,0.06,0.075,(v,u)=>{ const t=(u.x+1)/2; v.y*=1.15-0.75*t; if(u.y<0) v.y*=0.55; v.z*=1-0.25*t; v.y+=0.012*Math.max(0,u.y)*(1-t); },64,48),[-0.035,1.15,0.03],[0,0,-0.1]),MAT.organ('#7e2b25',{clearcoat:.6,clearcoatRoughness:.35}));
+  add('vesicule','vesicule',0,'digest',at(blob(0.011,0.024,0.011,(v,u)=>{ v.x*=0.7+0.3*(u.y+1)/2; }),[-0.035,1.112,0.075],[0.6,0,0.3]),MAT.organ('#4c8a3c'));
+  add('rate','rate',0,'digest',at(blob(0.024,0.045,0.03,(v,u)=>{ if(u.x<0) v.x*=0.5; }),[0.105,1.15,-0.035],[0.3,0.6,-0.4]),MAT.organ('#6a2848'));
+  // intestin grêle
+  const ip=[V(0.02,1.04,0.026)], zL=[0.066,0.042,0.02];
+  for (let L=0;L<3;L++) for (let r=0;r<5;r++){ const y=1.034-r*0.021-L*0.004, dx=(r+L)%2?-1:1;
+    for (let k=0;k<4;k++) ip.push(V(dx*(-0.058+k*0.039)+(rnd()-.5)*0.01, y+(rnd()-.5)*0.01+(k%2?0.007:-0.007), zL[L]+(rnd()-.5)*0.012)); }
+  ip.push(V(-0.06,0.952,0.04));
+  add('grele','grele',0,'digest',tube(crv(ip),cst(0.0105),{rad:12,seg:900}),MAT.organ('#e79d8c',{bumpScale:1}));
+  const co = crv([[-0.074,0.935,0.038],[-0.085,0.99,0.03],[-0.082,1.065,0.04],[-0.04,1.07,0.084],[0.03,1.068,0.084],[0.086,1.105,0.032],[0.092,1.0,0.02],[0.086,0.95,0.03],[0.04,0.92,0.05],[0.0,0.925,0.016],[0,0.9,-0.04],[0,0.865,-0.05]]);
+  add('colon','colon',0,'digest',tube(co,t=>{ const b=t<0.04?lerp(0.022,0.024,t/0.04):t<0.8?lerp(0.021,0.016,t/0.8):lerp(0.016,0.012,(t-0.8)/0.2); return b*(t<0.84?1+0.11*Math.sin(t*Math.PI*2*34):1)*Math.max(0.4,Math.min(1,Math.sqrt(t/0.02))); },{rad:16,seg:500}),MAT.organ('#c97a5c',{bumpScale:1}));
+  add('appendice','appendice',0,'digest',tube(crv([[-0.074,0.925,0.038],[-0.07,0.9,0.03],[-0.058,0.888,0.036]]),taper(0.0042,0.003),{rad:8}),MAT.organ('#c97a5c'));
+}
+function buildUrinary(){
+  for (const s of [1,-1]){
+    const S=sd(s);
+    add('rein-'+S,'rein',s,'urinary',at(blob(0.022,0.045,0.018,(v,u)=>{ if (u.x*s<-0.4 && Math.abs(u.y)<0.45) v.x*=1-0.55*sstep(0.45,0,Math.abs(u.y))*sstep(-0.4,-0.9,u.x*s); }),[s*0.064,s>0?1.08:1.068,-0.046],[0,s*0.25,s*0.16]),MAT.organ('#9e3838',{clearcoat:1}));
+    add('uretere-'+S,'uretere',s,'urinary',tube(crv([[s*0.046,s>0?1.072:1.06,-0.036],[s*0.04,1.0,-0.02],[s*0.05,0.93,-0.01],[s*0.024,0.9,0.026]]),cst(0.0025),{rad:6}),MAT.organ('#e8c26a'));
+    add('surrenale-'+S,'surrenale',s,'endocrine',at(blob(0.014,0.012,0.008,(v,u)=>{ v.x*=0.6+0.4*(1-u.y)/2; }),[s*0.056,s>0?1.132:1.12,-0.043]),MAT.organ('#e1a63a'));
+  }
+  add('vessie','vessie',0,'urinary',at(blob(0.034,0.028,0.03,(v,u)=>{ if(u.y>0) v.y*=0.75; }),[0,0.906,0.03]),MAT.organ('#e8c26a',{roughness:.3}));
+  add('thyroide','thyroide',0,'endocrine',M([1,-1].map(s=>at(blob(0.008,0.018,0.008),[s*0.016,1.458,0.032],[0,0,s*0.2])),at(blob(0.012,0.005,0.004),[0,1.452,0.04])),MAT.organ('#3fbf96'));
+  add('hypophyse','hypophyse',0,'endocrine',ball([0,1.636,0.008],0.0045),MAT.organ('#3fd6a8'));
+}
+
+/* =========================================================
+   PEAU HOLOGRAPHIQUE
+   ========================================================= */
+const skinMats=[];
+function holo(){
+  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    uniforms:{uColor:{value:C('#46c8ff')},uOp:{value:.6},uTime:{value:0}},
+    vertexShader:`varying vec3 vN;varying vec3 vV;varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);vV=normalize(cameraPosition-w.xyz);gl_Position=projectionMatrix*viewMatrix*w;}`,
+    fragmentShader:`uniform vec3 uColor;uniform float uOp;uniform float uTime;varying vec3 vN;varying vec3 vV;varying vec3 vW;
+      void main(){float f=pow(1.-abs(dot(normalize(vN),normalize(vV))),2.4);float sc=0.;
+      float sw=smoothstep(.035,0.,abs(vW.y-mod(uTime*.32,2.3)+.25));vec3 c=uColor*(f*.9+.03)+uColor*sw*.25*f;
+      gl_FragColor=vec4(c*uOp,1.);}`});
+  skinMats.push(m); return m;
+}
+function buildSkin(){
+  const g=[];
+  g.push(at(blob(0.08,0.104,0.1,(v,u)=>{ if(u.y<0){v.x*=1+0.3*u.y;} if(u.z>0.85&&Math.abs(u.x)<0.18&&u.y>-0.35&&u.y<0.1) v.z+=0.014*sstep(0.85,1,u.z); },48,36),[0,1.655,0.004]));
+  g.push(tube(crv([[0,1.6,-0.02],[0,1.52,-0.01],[0,1.43,-0.01]]),cst(0.05),{rad:24}));
+  g.push(tube(crv([[0,1.47,-0.012],[0,1.3,-0.014],[0,1.05,-0.006],[0,0.86,-0.02]]),table([[0,.13,.09],[0.06,.168,.112],[0.25,.158,.128],[0.45,.142,.12],[0.6,.128,.11],[0.78,.16,.12],[0.92,.165,.124],[1,.12,.1]]),{rad:40,hint:Z}));
+  for (const s of [1,-1]){
+    const {Sh,E,W}=arm(s), d2=W.clone().sub(E).normalize();
+    g.push(ball([s*0.168,1.43,-0.015],0.056));
+    g.push(tube(crv([Sh.clone().add(V(s*0.006,0.01,0)),E,W]),table([[0,.048],[0.45,.036],[0.55,.038],[0.7,.035],[1,.026]]),{rad:24}));
+    g.push(tube(seg(W,W.clone().addScaledVector(d2,0.17).add(V(0,0,0.012))),table([[0,.026,.014],[0.35,.036,.015],[0.6,.034,.012],[1,.012,.008]]),{rad:20,hint:Z}));
+    g.push(tube(crv([[s*0.095,0.97,-0.01],[s*0.097,0.5,0.0],[s*0.094,0.07,-0.015]]),table([[0,.088],[0.15,.08],[0.5,.05],[0.65,.056],[0.9,.035],[1,.032]]),{rad:28}));
+    g.push(tube(seg(fp(s,0.098,0.04,-0.062),fp(s,0.1,0.022,0.205)),table([[0,.025,.03],[0.3,.035,.03],[0.8,.044,.016],[1,.03,.011]]),{rad:20,hint:Y}));
+    g.push(at(blob(0.085,0.09,0.06),[s*0.075,0.92,-0.075]));
+  }
+  for (const gg of g) add('peau','peau',0,'skin',gg,holo(),{nopick:true});
+}
+
+/* =========================================================
+   CONSTRUCTION
+   ========================================================= */
+const steps = [['Squelette',buildSkeleton],['Muscles',buildMuscles],['Cœur et vaisseaux',buildCardio],['Système nerveux',buildNerves],['Appareil respiratoire',buildResp],['Organes digestifs',buildDigest],['Reins et glandes',buildUrinary],['Peau',buildSkin]];
+let si = 0;
+function nextStep(){
+  if (si < steps.length){ ldS.textContent = 'Modélisation : ' + steps[si][0].toLowerCase() + '…'; requestAnimationFrame(()=>setTimeout(()=>{ try { steps[si][1](); } catch(e){ ldS.innerHTML='<span id="err">Erreur ('+steps[si][0]+') : '+e.message+'</span>'; throw e; } si++; nextStep(); },16)); return; }
+  finish();
+}
+nextStep();
+
+/* =========================================================
+   PARTICULES : SANG & INFLUX
+   ========================================================= */
+let bloodMesh, nerveMesh, sparkMesh, blood=[], imp=[], sparks=[];
+const pathVis = [];
+const PCOL = {a:[1.8,0.25,0.25], v:[0.3,0.5,1.8], pa:[0.35,0.55,1.8], pv:[1.8,0.3,0.3], n:[1.9,1.5,0.4]};
+function buildParticles(){
+  paths.forEach((pa,i)=>{
+    if (pa.type==='n'){ const n=Math.max(1,Math.round(pa.len/0.12)); for (let k=0;k<n;k++) imp.push({pi:i,t:-rnd()*1.5,sp:0.55+rnd()*0.5}); }
+    else { const n=Math.max(2,Math.round(pa.len/0.04)); for (let k=0;k<n;k++) blood.push({pi:i,t:(k+rnd()*0.6)/n}); }
+  });
+  const sg = new THREE.SphereGeometry(1,10,8);
+  const mk = (n) => { const m=new THREE.InstancedMesh(sg,new THREE.MeshBasicMaterial({color:'#ffffff'}),n); m.frustumCulled=false; m.renderOrder=2; scene.add(m); return m; };
+  bloodMesh = mk(blood.length); nerveMesh = mk(imp.length); sparkMesh = mk(brainPts.length);
+  const c=new THREE.Color();
+  blood.forEach((b,i)=>{ const col=PCOL[paths[b.pi].type]; bloodMesh.setColorAt(i,c.setRGB(col[0],col[1],col[2])); });
+  imp.forEach((b,i)=>nerveMesh.setColorAt(i,c.setRGB(1.9,1.5,0.4)));
+  brainPts.forEach((p,i)=>{ sparkMesh.setColorAt(i,c.setRGB(1.4,1.2,1.8)); sparks.push({p,ph:rnd()*20,f:0.6+rnd()*1.4}); });
+  for (const m of [bloodMesh,nerveMesh,sparkMesh]) if (m.instanceColor) m.instanceColor.needsUpdate=true;
+}
+const _m4=new THREE.Matrix4(), _q=new THREE.Quaternion(), _s=new THREE.Vector3(), _p=new THREE.Vector3();
+function samplePath(pa,t,out){
+  const f=clamp(t,0,1)*(pa.N-1), i=Math.min(pa.N-2,Math.floor(f)), k=f-i, a=pa.arr;
+  return out.set(lerp(a[i*3],a[i*3+3],k),lerp(a[i*3+1],a[i*3+4],k),lerp(a[i*3+2],a[i*3+5],k));
+}
+
+/* =========================================================
+   ÉTAT, VISIBILITÉ, SÉLECTION
+   ========================================================= */
+const anim = {beat:true,flow:true,nerve:true,breath:true,bloom:true};
+let bpm=72, rr=14, xray=false, isoSet=null, sel=null, hov=null;
+const ACC = C('#56d6ff');
+function effOp(p){
+  let o = p.baseOp * layers[p.sys].op;
+  if (xray && p.sys!=='skin') o *= 0.3;
+  if (isoSet && !isoSet.has(p.id)) o *= p.sys==='skin' ? 0.5 : 0.06;
+  return o;
+}
+const isOn = p => layers[p.sys].on && !p.hidden;
+function applyVis(){
+  for (const id in parts){
+    const p=parts[id], on=isOn(p), o=effOp(p);
+    for (const m of p.meshes){
+      m.visible = on && o>0.004;
+      const mt=m.material;
+      if (mt.isShaderMaterial){ mt.uniforms.uOp.value=o; continue; }
+      const tr=o<0.995; if (mt.transparent!==tr){ mt.transparent=tr; mt.needsUpdate=true; }
+      mt.opacity=o; mt.depthWrite=o>0.5;
+    }
+  }
+  paths.forEach((pa,i)=>{ const p=parts[pa.pid]; pathVis[i] = !!p && isOn(p) && effOp(p)>0.15; });
+  refreshLayerUI(); refreshList();
+}
+function setEm(p,col,k){
+  for (const m of p.meshes){ const mt=m.material; if (!mt.emissive) continue;
+    if (col){ mt.emissive.copy(col); mt.emissiveIntensity=k; } else { mt.emissive.copy(mt.userData.be); mt.emissiveIntensity=mt.userData.bi; } }
+}
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pickAt(x,y){
+  const r=canvas.getBoundingClientRect(); ndc.set((x-r.left)/r.width*2-1, -(y-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc,camera);
+  const c = meshes.filter(m=>{ const p=parts[m.userData.pid]; return m.visible && !p.nopick && effOp(p)>0.25; });
+  const h = ray.intersectObjects(c,false);
+  return h.length ? parts[h[0].object.userData.pid] : null;
+}
+function bboxOf(p){ const b=new THREE.Box3(); for (const m of p.meshes){ m.updateWorldMatrix(true,false); b.expandByObject(m); } return b; }
+let tween=null;
+function fly(target,pos,dur=1){ tween={t:0,dur,ft:controls.target.clone(),fp:camera.position.clone(),tt:target.clone(),tp:pos.clone()}; }
+function focusPart(p){
+  const b=bboxOf(p), c=b.getCenter(new THREE.Vector3()), rad=Math.max(0.018,b.getSize(new THREE.Vector3()).length()/2);
+  const vf=camera.fov*Math.PI/180, hf=2*Math.atan(Math.tan(vf/2)*camera.aspect), f=Math.min(vf,hf);
+  const dist=Math.max(0.09, rad/Math.sin(f/2)*1.05);
+  const dir=camera.position.clone().sub(controls.target).normalize();
+  fly(c, c.clone().addScaledVector(dir,dist));
+}
+function select(p,doFly=true){
+  if (sel && sel!==p) setEm(sel,null);
+  if (hov){ setEm(hov,null); hov=null; }
+  sel=p;
+  if (!p){ $('#info').classList.add('hide'); $('#label').style.opacity=0; setOffset(false); refreshList(); return; }
+  if (!layers[p.sys].on){ layers[p.sys].on=true; }
+  p.hidden=false;
+  if (isoSet && !isoSet.has(p.id)) isoSet=null;
+  applyVis();
+  $('#iSysW').style.setProperty('--c',SYS[p.sys].c);
+  $('#iSys').textContent = SYS[p.sys].n;
+  $('#iName').textContent = p.name;
+  $('#iLat').textContent = p.latin;
+  $('#iDesc').textContent = p.desc;
+  $('#iFact').textContent = p.fact;
+  $('#aMir').disabled = !mirrorOf(p);
+  $('#aIso').classList.toggle('on',!!isoSet);
+  $('#aIso').textContent = isoSet ? 'Tout montrer' : 'Isoler';
+  $('#info').classList.remove('hide');
+  $('#info').scrollTop = 0;
+  $('#label span').textContent = p.name;
+  closeMobPanel(); setOffset(true);
+  if (doFly) focusPart(p);
+  refreshList();
+}
+const mirrorOf = p => { if (!p.side) return null; const m=p.id.replace(/-(L|R)$/,x=>x==='-L'?'-R':'-L'); return parts[m] && m!==p.id ? parts[m] : null; };
+function setOffset(on){
+  if (on && innerWidth<=820){ const h=innerHeight; camera.setViewOffset(innerWidth,h,0,h*0.2,innerWidth,h); }
+  else camera.clearViewOffset();
+}
+
+/* =========================================================
+   INTERFACE
+   ========================================================= */
+const PRESETS = [
+  ['Tout',LORDER.filter(k=>k!=='muscle')],
+  ['Squelette',['skeleton']],
+  ['Muscles',['skeleton','muscle']],
+  ['Circulation',['artery','vein','skin']],
+  ['Nerfs',['nerve','skeleton']],
+  ['Organes',['resp','digest','urinary','endocrine','artery','skin']],
+  ['Corps entier',LORDER]
+];
+function buildUI(){
+  $('#presets').innerHTML = PRESETS.map((p,i)=>`<button class="chip" data-p="${i}">${p[0]}</button>`).join('');
+  const cnt = {}; for (const id in parts) cnt[parts[id].sys]=(cnt[parts[id].sys]||0)+1;
+  $('#layers').innerHTML = LORDER.map(k=>`<div class="lay" data-k="${k}" style="--c:${SYS[k].c}">
+    <span class="dot"></span><div><b>${SYS[k].n}</b><small>${k==='skin'?'Hologramme':cnt[k]+' structures'}</small></div>
+    <button class="sw" aria-label="Afficher ${SYS[k].n}"></button>
+    <input type="range" min="0" max="100" value="${Math.round(layers[k].op*100)}" aria-label="Opacité ${SYS[k].n}"></div>`).join('');
+  $('#layers').addEventListener('click',e=>{ const row=e.target.closest('.lay'); if(!row||e.target.type==='range') return; const L=layers[row.dataset.k]; L.on=!L.on; if(L.on&&L.op<0.05) L.op=1; applyVis(); });
+  $('#layers').addEventListener('input',e=>{ if(e.target.type!=='range') return; const k=e.target.closest('.lay').dataset.k; layers[k].op=e.target.value/100; if(layers[k].op>0) layers[k].on=true; applyVis(); });
+  $('#presets').addEventListener('click',e=>{ const b=e.target.closest('[data-p]'); if(!b) return; const on=PRESETS[b.dataset.p][1]; for (const k of LORDER){ layers[k].on=on.includes(k); layers[k].op = k==='skin'?0.6:(k==='muscle'&&on.includes('skeleton')&&on.length<=2?1:1); } if(on.includes('muscle')&&on.includes('skeleton')&&on.length===2) layers.muscle.op=0.85; isoSet=null; applyVis(); });
+  // liste
+  const groups = LORDER.map(k=>({k,items:Object.values(parts).filter(p=>p.sys===k).sort((a,b)=>a.name.localeCompare(b.name,'fr',{numeric:true}))}));
+  $('#list').innerHTML = groups.map(g=>`<div class="grp" style="--c:${SYS[g.k].c}"><i></i>${SYS[g.k].n}</div>`+g.items.map(p=>`<button class="it" data-id="${p.id}" data-s="${(p.name+' '+p.latin).toLowerCase()}">${p.name}<span class="h" hidden>masqué</span></button>`).join('')).join('');
+  $('#list').addEventListener('click',e=>{ const b=e.target.closest('.it'); if(b) select(parts[b.dataset.id]); });
+  $('#q').addEventListener('input',e=>{ const q=e.target.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    $$('.it').forEach(b=>{ b.hidden = q && !b.dataset.s.normalize('NFD').replace(/[̀-ͯ]/g,'').includes(q); });
+    $$('#list .grp').forEach(g=>{ let n=g.nextElementSibling, any=false; while(n&&!n.classList.contains('grp')){ if(!n.hidden) any=true; n=n.nextElementSibling; } g.hidden=!any; }); });
+  $('#unhide').onclick = ()=>{ for (const id in parts) parts[id].hidden=false; isoSet=null; applyVis(); };
+  // onglets
+  $$('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+  $$('#mob button').forEach(b=>b.onclick=()=>{ const open=$('#panel').classList.contains('open') && b.classList.contains('on'); if(open) closeMobPanel(); else { showTab(b.dataset.m); $('#panel').classList.add('open'); $$('#mob button').forEach(x=>x.classList.toggle('on',x===b)); select(null,false); } });
+  // animations
+  $$('[data-a]').forEach(b=>b.onclick=()=>{ const k=b.dataset.a; anim[k]=!anim[k]; b.setAttribute('aria-pressed',anim[k]); });
+  $('#sBpm').oninput = e=>{ bpm=+e.target.value; $('#oBpm').textContent=bpm+' bpm'; $('#bpmV').textContent=bpm; };
+  $('#sRr').oninput = e=>{ rr=+e.target.value; $('#oRr').textContent=rr+' /min'; };
+  $$('[data-hr]').forEach(b=>b.onclick=()=>{ const [h,r]=b.dataset.hr.split(',').map(Number); $('#sBpm').value=h; $('#sRr').value=r; $('#sBpm').oninput({target:$('#sBpm')}); $('#sRr').oninput({target:$('#sRr')}); });
+  // vues
+  const VIEWS = [['Face',[0,0.95,0],[0,1.05,3.2]],['Dos',[0,0.95,0],[0,1.05,-3.2]],['Profil',[0,0.95,0],[3.2,1.05,0]],['Tête',[0,1.63,0],[0.22,1.68,0.5]],['Cerveau',[0,1.66,-0.01],[0.3,1.85,0.3]],['Thorax',[0,1.3,0],[0.32,1.38,0.95]],['Cœur',[0.015,1.29,0.03],[0.18,1.34,0.42]],['Abdomen',[0,1.03,0.02],[0.28,1.1,0.9]],['Colonne',[0,1.25,-0.06],[-0.9,1.3,-0.9]],['Main',[0.3,0.8,0.02],[0.62,0.86,0.42]],['Genou',[0.1,0.5,0],[0.42,0.56,0.45]],['Pied',[0.1,0.05,0.07],[0.45,0.24,0.48]]];
+  $('#viewBar').innerHTML = VIEWS.map((v,i)=>`<button data-v="${i}">${v[0]}</button>`).join('');
+  $('#viewBar').onclick = e=>{ const b=e.target.closest('[data-v]'); if(!b) return; const v=VIEWS[b.dataset.v]; fly(V(...v[1]),V(...v[2]),1.1); };
+  // outils
+  $('#bXray').onclick = ()=>{ xray=!xray; $('#bXray').classList.toggle('on',xray); applyVis(); };
+  $('#bRot').onclick = ()=>{ controls.autoRotate=!controls.autoRotate; $('#bRot').classList.toggle('on',controls.autoRotate); };
+  $('#bReset').onclick = ()=>{ isoSet=null; xray=false; $('#bXray').classList.remove('on'); for (const id in parts) parts[id].hidden=false; select(null); applyVis(); fly(V(0,0.95,0),V(0,1.05,3.2),1.1); };
+  $('#bFull').onclick = ()=>{ try{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else document.exitFullscreen(); }catch(e){} };
+  // fiche
+  $('#iClose').onclick = ()=>select(null);
+  $('#aFocus').onclick = ()=>sel&&focusPart(sel);
+  $('#aHide').onclick = ()=>{ if(!sel) return; const p=sel; select(null); p.hidden=true; applyVis(); };
+  $('#aMir').onclick = ()=>{ const m=sel&&mirrorOf(sel); if(m) select(m); };
+  $('#aIso').onclick = ()=>{ if(!sel) return; isoSet = isoSet ? null : new Set([sel.id]); $('#aIso').classList.toggle('on',!!isoSet); $('#aIso').textContent = isoSet ? 'Tout montrer' : 'Isoler'; applyVis(); };
+  addEventListener('keydown',e=>{ if(e.key==='Escape') select(null); });
+}
+function showTab(t){ $$('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t)); for (const s of ['layers','list','anim']) $('#t-'+s).hidden = s!==t; }
+function closeMobPanel(){ $('#panel').classList.remove('open'); $$('#mob button').forEach(x=>x.classList.remove('on')); }
+function refreshLayerUI(){
+  $$('.lay').forEach(r=>{ const L=layers[r.dataset.k]; r.classList.toggle('off',!L.on); r.querySelector('.sw').setAttribute('aria-pressed',L.on); r.querySelector('input').value=Math.round(L.op*100); });
+}
+function refreshList(){
+  $$('.it').forEach(b=>{ const p=parts[b.dataset.id]; b.classList.toggle('sel',sel===p); b.querySelector('.h').hidden=!(p.hidden||!layers[p.sys].on); b.querySelector('.h').textContent = p.hidden?'masqué':'calque off'; });
+}
+
+/* pointeur */
+let down=null;
+canvas.addEventListener('pointerdown',e=>{ down={x:e.clientX,y:e.clientY,t:performance.now()}; tween=null; });
+canvas.addEventListener('pointerup',e=>{
+  if (!down) return; const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y), dt=performance.now()-down.t; down=null;
+  if (moved<7 && dt<450){ const p=pickAt(e.clientX,e.clientY); if (p) select(p); else if (sel) select(null); }
+});
+let lastHover=0;
+canvas.addEventListener('pointermove',e=>{
+  if (e.pointerType!=='mouse' || down) return;
+  const now=performance.now(); if (now-lastHover<50) return; lastHover=now;
+  const p=pickAt(e.clientX,e.clientY), tip=$('#tip');
+  if (hov && hov!==p && hov!==sel) setEm(hov,null);
+  hov = p && p!==sel ? p : null;
+  if (p){ tip.textContent=p.name; tip.style.left=e.clientX+'px'; tip.style.top=e.clientY+'px'; tip.style.opacity=1; canvas.style.cursor='pointer'; }
+  else { tip.style.opacity=0; canvas.style.cursor=''; }
+});
+canvas.addEventListener('pointerleave',()=>{ $('#tip').style.opacity=0; });
+
+/* ECG */
+const ecg=$('#ecg'), ectx=ecg.getContext('2d'), ecgBuf=new Array(240).fill(0);
+function ecgVal(ph){ return 0.12*gauss(ph,0.1,0.025) - 0.1*gauss(ph,0.19,0.008) + gauss(ph,0.21,0.011) - 0.26*gauss(ph,0.235,0.01) + 0.3*gauss(ph,0.45,0.045); }
+function drawEcg(){
+  if ($('#t-anim').hidden) return;
+  const w=ecg.clientWidth, h=ecg.clientHeight, dpr=Math.min(2,devicePixelRatio);
+  if (ecg.width!==Math.round(w*dpr)){ ecg.width=Math.round(w*dpr); ecg.height=Math.round(h*dpr); }
+  ectx.setTransform(dpr,0,0,dpr,0,0); ectx.clearRect(0,0,w,h);
+  ectx.strokeStyle='rgba(255,90,106,.12)'; ectx.lineWidth=1;
+  for (let x=0;x<w;x+=12){ ectx.beginPath(); ectx.moveTo(x,0); ectx.lineTo(x,h); ectx.stroke(); }
+  ectx.strokeStyle='#ff5a6a'; ectx.lineWidth=2; ectx.shadowColor='#ff5a6a'; ectx.shadowBlur=8; ectx.beginPath();
+  ecgBuf.forEach((v,i)=>{ const x=i/(ecgBuf.length-1)*w, y=h*0.68-v*h*0.55; i?ectx.lineTo(x,y):ectx.moveTo(x,y); });
+  ectx.stroke(); ectx.shadowBlur=0;
+}
+
+/* =========================================================
+   BOUCLE
+   ========================================================= */
+let clock=new THREE.Clock(), time=0, phase=0, bphase=0, ecgAcc=0;
+function resize(){
+  const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); composer.setPixelRatio(PR); composer.setSize(w,h);
+  camera.aspect=w/h; camera.updateProjectionMatrix(); setOffset(!!sel);
+}
+addEventListener('resize',resize);
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(0.05,clock.getDelta()); time+=dt;
+  if (tween){ tween.t+=dt; const k=1-Math.pow(1-Math.min(1,tween.t/tween.dur),3); controls.target.lerpVectors(tween.ft,tween.tt,k); camera.position.lerpVectors(tween.fp,tween.tp,k); if (tween.t>=tween.dur) tween=null; }
+  controls.update();
+  // cœur
+  phase = (phase + dt*bpm/60) % 1;
+  const sys = anim.beat ? (phase>0.22&&phase<0.52 ? Math.sin(Math.PI*(phase-0.22)/0.3) : 0) : 0;
+  const atr = anim.beat ? (phase>0.06&&phase<0.18 ? Math.sin(Math.PI*(phase-0.06)/0.12) : 0) : 0;
+  heartGroup.scale.setScalar(1-0.075*sys-0.02*atr);
+  ecgAcc += dt; while (ecgAcc>1/90){ ecgAcc-=1/90; ecgBuf.shift(); ecgBuf.push(anim.beat?ecgVal(phase):0); }
+  drawEcg();
+  // respiration
+  if (anim.breath) bphase = (bphase + dt*rr/60) % 1;
+  const br = 0.5-0.5*Math.cos(bphase*Math.PI*2);
+  for (const l of lungs) l.scale.set(1+0.07*br,1+0.045*br,1+0.07*br);
+  if (diaphragm) diaphragm.position.y = 1.142 - 0.016*br;
+  // particules
+  if (bloodMesh){
+    const pulse = 0.45+1.9*sys;
+    blood.forEach((b,i)=>{ const pa=paths[b.pi];
+      if (anim.flow && pathVis[b.pi]){ const sp = (pa.type==='a'||pa.type==='pa') ? 0.13*pulse : 0.075; b.t=(b.t+dt*sp/pa.len)%1; samplePath(pa,b.t,_p); _s.setScalar(Math.min(pa.r*1.35,0.0075)); }
+      else _s.setScalar(0);
+      bloodMesh.setMatrixAt(i,_m4.compose(_p,_q,_s)); });
+    bloodMesh.instanceMatrix.needsUpdate=true;
+    imp.forEach((b,i)=>{ const pa=paths[b.pi]; b.t += dt*b.sp*0.9/Math.max(pa.len,0.1);
+      if (b.t>1.6) b.t=-rnd()*0.8;
+      if (anim.nerve && pathVis[b.pi] && b.t>=0 && b.t<=1){ samplePath(pa,b.t,_p); _s.setScalar(Math.max(pa.r*1.8,0.003)*Math.sin(Math.PI*b.t)); } else _s.setScalar(0);
+      nerveMesh.setMatrixAt(i,_m4.compose(_p,_q,_s)); });
+    nerveMesh.instanceMatrix.needsUpdate=true;
+    const brainOn = anim.nerve && isOn(parts['hemisphere-L']) && effOp(parts['hemisphere-L'])>0.15;
+    sparks.forEach((s,i)=>{ const k=brainOn?Math.pow(Math.max(0,Math.sin(time*s.f*0.5+s.ph)),4):0; _s.setScalar(0.003*k); sparkMesh.setMatrixAt(i,_m4.compose(s.p,_q,_s)); });
+    sparkMesh.instanceMatrix.needsUpdate=true;
+  }
+  for (const m of skinMats) m.uniforms.uTime.value=time;
+  if (window.__floor) {}
+  // surbrillance
+  if (sel) setEm(sel,ACC,0.22+0.08*Math.sin(time*2));
+  if (hov && hov!==sel) setEm(hov,ACC,0.12);
+  // étiquette
+  const lab=$('#label');
+  if (sel){ const c=bboxOf(sel).getCenter(_p).project(camera); const vis=c.z<1&&Math.abs(c.x)<1.05&&Math.abs(c.y)<1.05;
+    lab.style.opacity = vis?1:0; lab.style.transform=`translate(${(c.x*0.5+0.5)*innerWidth}px,${(-c.y*0.5+0.5)*innerHeight}px)`; }
+  if (anim.bloom) composer.render(); else renderer.render(scene,camera);
+}
+
+function finish(){
+  ldS.textContent = 'Mise en lumière…';
+  buildParticles();
+  buildUI();
+  applyVis();
+  resize();
+  $$('[data-a="bloom"]').forEach(b=>{ if(isMobile && devicePixelRatio>2.5){ anim.bloom=false; b.setAttribute('aria-pressed',false); } });
+  window.__ready = true;
+  loop();
+  fly(V(0,0.95,0), V(0,1.05,3.2), 2.2);
+  setTimeout(()=>$('#loader').classList.add('off'),150);
+}
+}
+</script>
+</body>
+</html>
